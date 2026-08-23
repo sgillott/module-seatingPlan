@@ -1,18 +1,954 @@
-/*
-Gibbon, Flexible & Open School System
-Copyright (C) 2010, Ross Parker
+/**
+ * Seating Plan module styles.
+ *
+ * The designer occupies the whole viewport. Everything inside the room is
+ * sized from a single --cell custom property, so one write on resize
+ * rescales the entire layout.
+ */
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+.sp-designer {
+    --sp-ink: #1f2937;
+    --sp-muted: #6b7280;
+    --sp-line: #d1d5db;
+    --sp-panel: #f9fafb;
+    --sp-accent: #0f6156;
+    --sp-floor: #ffffff;
+    --sp-grid: rgba(15, 97, 86, .13);
+    --sp-dot: rgba(15, 97, 86, .13);
+    --sp-wood: #e7d7bf;
+    --sp-wood-line: #c4ab86;
+    --sp-metal: #dfe3e8;
+    --sp-metal-line: #9aa3ad;
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--sp-panel);
+    color: var(--sp-ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    overflow: hidden;
+}
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/* ------------------------------------------------------------------- bar */
 
-*/
+.sp-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    height: 52px;
+    background: #fff;
+    border-bottom: 1px solid var(--sp-line);
+}
+
+/* A line under the toolbar, for something the teacher should read before
+   they start: whose layout this is, or that a newer version of it exists.
+   Sits outside .sp-body so it never overlaps the room itself. */
+.sp-notice {
+    flex: none;
+    padding: 8px 16px;
+    background: #fef9c3;
+    border-bottom: 1px solid #eab308;
+    color: #713f12;
+    font-size: 13px;
+}
+
+.sp-notice-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* ------------------------------------------------------- layout preview */
+
+/* Two rooms side by side on an ordinary page, so a teacher can see what
+   taking somebody else's layout would do before agreeing to it. Read-only:
+   these reuse the room's own grid and furniture artwork, but none of its
+   pointer handling. */
+.sp-preview-pair {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 12px 0 16px;
+}
+
+.sp-preview-panel {
+    flex: 1 1 300px;
+    min-width: 0;
+}
+
+.sp-preview-title {
+    margin: 0 0 2px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--sp-ink);
+}
+
+.sp-preview-note {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--sp-muted);
+}
+
+.sp-preview {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+    background: var(--sp-panel);
+    border: 1px solid var(--sp-line);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+/* Nothing in a preview is grabbable. */
+.sp-preview-room .sp-item { cursor: default; }
+
+/* What would go, and what would arrive. Outlines rather than fills, so the
+   furniture underneath stays recognisable. */
+.sp-item-removed {
+    outline: 2px solid #b91c1c;
+    outline-offset: 1px;
+    border-radius: 2px;
+}
+
+.sp-item-added {
+    outline: 2px solid #15803d;
+    outline-offset: 1px;
+    border-radius: 2px;
+}
+
+.sp-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    color: var(--sp-muted);
+    text-decoration: none;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.sp-back:hover {
+    background: var(--sp-panel);
+    color: var(--sp-ink);
+}
+
+.sp-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sp-dims,
+.sp-status {
+    font-size: 12px;
+    color: var(--sp-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.sp-status {
+    margin-left: auto;
+    min-width: 110px;
+    text-align: right;
+}
+
+.sp-status-ok { color: #15803d; }
+.sp-status-warn { color: #a16207; }
+.sp-status-error { color: #b91c1c; }
+
+/* The mode strip sits in the middle of the bar: the room stays put and only
+   what you do with it changes. */
+.sp-modes {
+    flex: none;
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 5px;
+    background: var(--sp-panel);
+    border: 1px solid var(--sp-line);
+}
+
+.sp-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--sp-muted);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+/* fill="currentColor" on the icon means it always matches the link's own
+   text colour, so hover and is-current need no icon-specific colour rule. */
+.sp-mode-icon {
+    flex: none;
+    width: 15px;
+    height: 15px;
+}
+
+.sp-mode:hover { background: #fff; color: var(--sp-ink); }
+
+.sp-mode.is-current {
+    background: #fff;
+    color: var(--sp-accent);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+
+.sp-size {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border: 1px solid var(--sp-line);
+    border-radius: 4px;
+    background: #fff;
+}
+
+.sp-size input {
+    width: 42px;
+    padding: 3px 4px;
+    border: none;
+    background: none;
+    color: var(--sp-ink);
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.sp-size input:focus { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+.sp-size-x { color: var(--sp-muted); font-size: 12px; }
+
+.sp-btn {
+    flex: none;
+    padding: 6px 12px;
+    font-size: 13px;
+    line-height: 1.2;
+    border: 1px solid var(--sp-line);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--sp-ink);
+    cursor: pointer;
+}
+
+.sp-btn:hover { background: var(--sp-panel); }
+.sp-btn:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
+
+.sp-btn-primary {
+    background: var(--sp-accent);
+    border-color: var(--sp-accent);
+    color: #fff;
+    font-weight: 600;
+}
+
+.sp-btn-primary:hover { background: #0b4a42; }
+
+/* --------------------------------------------------------------- layout */
+
+.sp-body {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+.sp-palette {
+    flex: none;
+    width: 168px;
+    padding: 14px 12px;
+    background: #fff;
+    border-right: 1px solid var(--sp-line);
+    overflow-y: auto;
+}
+
+.sp-palette h2 {
+    margin: 0 0 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--sp-accent);
+}
+
+.sp-tool {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 5px 7px;
+    margin-bottom: 3px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+}
+
+.sp-tool:hover { background: var(--sp-panel); border-color: var(--sp-line); }
+.sp-tool:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+
+.sp-tool-art {
+    flex: none;
+    position: relative;
+    width: 46px;
+    height: 26px;
+}
+
+.sp-tool-label { font-size: 12.5px; color: var(--sp-ink); }
+
+.sp-hint {
+    margin: 14px 0 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--sp-muted);
+}
+
+.sp-stage {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+    padding: 16px;
+    overflow: hidden;
+}
+
+/* ----------------------------------------------------------------- room */
+
+.sp-room {
+    /* One step is a tenth of a cell: the resolution furniture moves at. */
+    --step: calc(var(--cell) / 10);
+
+    position: relative;
+    width: calc(var(--cols) * var(--cell));
+    height: calc(var(--rows) * var(--cell));
+    background-color: var(--sp-floor);
+    background-image:
+        radial-gradient(var(--sp-dot) .5px, transparent .5px),
+        linear-gradient(to right, var(--sp-grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--sp-grid) 1px, transparent 1px);
+    background-size:
+        var(--step) var(--step),
+        var(--cell) var(--cell),
+        var(--cell) var(--cell);
+    border: 2px solid var(--sp-ink);
+    border-radius: 2px;
+    box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .5);
+    touch-action: none;
+}
+
+/* The fine grid is a faint texture at rest and a real guide while dragging. */
+.sp-room.is-dragging { --sp-dot: rgba(15, 97, 86, .34); }
+
+.sp-item {
+    position: absolute;
+    left: calc(var(--c) * var(--cell) / 10);
+    top: calc(var(--r) * var(--cell) / 10);
+    width: calc(var(--w) * var(--cell) / 10);
+    height: calc(var(--h) * var(--cell) / 10);
+    cursor: grab;
+}
+
+/* Three layers: base furniture, then devices, then seats. Selecting a piece
+   lifts it above its own layer but never into the one above - a chair is where
+   a student goes, so it stays the topmost thing in the room. */
+.sp-item { z-index: 1; }
+.sp-item.is-selected { z-index: 2; }
+.sp-item[data-layer="device"] { z-index: 3; }
+.sp-item[data-layer="device"].is-selected { z-index: 4; }
+.sp-item[data-layer="seat"] { z-index: 5; }
+.sp-item[data-layer="seat"].is-selected { z-index: 6; }
+
+/* Something that does not fit is called out in red, so the user can see which
+   piece to move rather than being told an index they cannot count. */
+.sp-item.is-invalid { z-index: 9; }
+
+.sp-item.is-invalid::before {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border: 2px solid #b91c1c;
+    border-radius: 3px;
+    background: rgba(185, 28, 28, .16);
+    pointer-events: none;
+}
+
+.sp-item.is-selected::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border: 2px solid var(--sp-accent);
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+/* ------------------------------------------------------- seating backdrop */
+
+/* The seating mode's own furniture layer: the layout drawn once, underneath
+   the students, and never touched by anything that moves the students. It
+   gets its own stacking context so its internal chair/desk/device ordering
+   never competes with the real, draggable items sitting above it. */
+.sp-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.sp-item-backdrop {
+    opacity: .55;
+}
+
+/* ------------------------------------------------------------ student tile */
+
+.sp-student {
+    /* The name band's own rendered height (padding + line-height), so the
+       bottom two badges can sit just above it without a second magic
+       number to keep in sync if the band's own sizing ever changes. */
+    --sp-name-h: calc(2px + var(--cell) * .208);
+
+    position: absolute;
+    inset: 1px;
+    display: flex;
+    align-items: flex-end;
+    border-radius: 3px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--sp-line);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+}
+
+.sp-student-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.sp-student-name {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    padding: 1px 3px;
+    background: rgba(255, 255, 255, .88);
+    color: var(--sp-ink);
+    font-size: calc(var(--cell) * .16);
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+
+/* Register mode: a mark shows as a colour wash over the photo, from the top
+   down to the (already-opaque) name band, with the code's own short form as
+   a large white letter and its full name in a smaller label beneath. The
+   band's own opaque background keeps it legible over the wash regardless of
+   the wash's own height, so the wash itself can simply cover the whole
+   tile rather than needing to measure the band. Pending (no mark yet) has
+   no wash at all - the wash answers "what mark"; the tile's own border
+   (below) answers a different question, "is that mark actually saved for
+   today's period yet". */
+.sp-mark-wash {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--cell) * .02);
+    padding-bottom: calc(var(--cell) * .2);
+    pointer-events: none;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+}
+
+/* Keyed off the wash's own bucket, not the tile's - a tile mid-swipe holds
+   two washes at once (the outgoing mark and the incoming one), each its
+   own colour regardless of what the other is. */
+.sp-mark-wash[data-bucket="present"] { background: rgba(47, 125, 78, .55); }
+.sp-mark-wash[data-bucket="late"] { background: rgba(169, 118, 26, .55); }
+.sp-mark-wash[data-bucket="absent"] { background: rgba(178, 58, 44, .55); }
+/* Anything that isn't Present, Present - Late, Present - Offsite or
+   Absent itself (core's own Left/Left - Early, or a school's own
+   Additional codes) - blue, so it reads as neither present nor absent. */
+.sp-mark-wash[data-bucket="other"] { background: rgba(37, 99, 163, .55); }
+
+.sp-mark-letter {
+    font-size: calc(var(--cell) * .4);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.sp-mark-label {
+    width: 100%;
+    padding: 0 4px;
+    font-size: calc(var(--cell) * .1);
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* A swipe plays whenever a tile's mark changes: the outgoing mark's own
+   wash (when there was one) slides out past one edge while the incoming
+   one slides in from the other, both moving the same direction so they
+   hand off with no gap. A left click (forward through the codes) swipes
+   right to left; a right click (backward) swipes left to right - the
+   "-reverse" pair below, mirroring the plain pair exactly. These are
+   keyframe animations, not transitions: room.js's render() rebuilds both
+   washes as brand new elements on every change, and a transition needs an
+   existing element's property to change under it, while an animation just
+   plays on whatever carries its trigger class. A first-ever mark (nothing
+   to swipe away from) only ever gets the "in" class, sliding in on its
+   own, whichever direction that click used. */
+@keyframes sp-mark-slide-out {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+}
+
+@keyframes sp-mark-slide-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+@keyframes sp-mark-slide-out-reverse {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
+}
+
+@keyframes sp-mark-slide-in-reverse {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+.sp-mark-wash-out {
+    animation: sp-mark-slide-out .35s ease-in-out forwards;
+}
+
+.sp-mark-wash-in {
+    animation: sp-mark-slide-in .35s ease-in-out;
+}
+
+.sp-mark-wash-out-reverse {
+    animation: sp-mark-slide-out-reverse .35s ease-in-out forwards;
+}
+
+.sp-mark-wash-in-reverse {
+    animation: sp-mark-slide-in-reverse .35s ease-in-out;
+}
+
+/* Register mode's save-state border: has this exact tile's mark actually
+   been written for today's period yet, regardless of what it displays? A
+   mark only carried forward from an earlier period (crossfilled/wildcard,
+   never explicitly recorded today) still shows dirty here even though the
+   wash already shows a colour - the two signals answer different
+   questions and are expected to disagree until Save Attendance is
+   clicked. Same reds/greens as this module's own status-bar tones
+   (.sp-status-error / .sp-status-ok), just as a border rather than text. */
+.sp-student[data-save-state="dirty"] { border: 3px solid #b91c1c; }
+.sp-student[data-save-state="saved"] { border: 3px solid #15803d; }
+
+.sp-student.is-saving {
+    opacity: .6;
+}
+
+.sp-student-ambiguous {
+    opacity: .45;
+}
+
+.sp-handle {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    width: 12px;
+    height: 12px;
+    background: var(--sp-accent);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    cursor: nwse-resize;
+    z-index: 8;
+}
+
+/* ------------------------------------------------------------------- art */
+
+.sp-art {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--uw) * var(--cell) / 10);
+    height: calc(var(--uh) * var(--cell) / 10);
+    /* Rotate first, then mirror inside that frame, so a flipped door swings
+       the other way whichever wall it is on. */
+    transform: translate(-50%, -50%)
+        rotate(calc(var(--rot) * 90deg))
+        scaleX(var(--flip, 1));
+    pointer-events: none;
+}
+
+/* Artwork-backed pieces. The drawing shows which way the piece faces, so no
+   painted-on back edge is needed. */
+.sp-art[data-type="chair"],
+.sp-art[data-type="computer"],
+.sp-art[data-type="door"] {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* A chair is a solid white tile by design: it marks where a student will go,
+   and in the seating plan a student tile drops straight onto it. The border
+   keeps it defined against the white floor. */
+.sp-art[data-type="chair"] {
+    background-image: url("../img/chair.png");
+    background-color: #fff;
+    border: 1px solid var(--sp-ink);
+    border-radius: 2px;
+}
+
+.sp-art[data-type="computer"] {
+    background-image: url("../img/computer.png");
+}
+
+.sp-art[data-type="deskSingle"],
+.sp-art[data-type="deskDouble"],
+.sp-art[data-type="deskTeacher"] {
+    background: var(--sp-wood);
+    border: 1px solid var(--sp-wood-line);
+    border-radius: 2px;
+}
+
+.sp-art[data-type="deskTeacher"] { background: #dcc7a6; }
+
+.sp-art[data-type="slab"] {
+    background: repeating-linear-gradient(
+        45deg,
+        var(--sp-metal),
+        var(--sp-metal) 5px,
+        #eef1f4 5px,
+        #eef1f4 10px
+    );
+    border: 1px solid var(--sp-metal-line);
+    border-radius: 2px;
+}
+
+
+.sp-art[data-type="board"] {
+    background: #fff;
+    border: 1.5px solid var(--sp-ink);
+    border-bottom-width: 4px;
+    border-radius: 2px;
+}
+
+/* Fixtures carry their name: a thin bar or a swing arc is otherwise hard to
+   tell apart from a wall. Absolute so it centres whatever the art's own
+   layout does. */
+.sp-art-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--cell) * .2);
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--sp-muted);
+    white-space: nowrap;
+    pointer-events: none;
+    /* Undo the parent's transform so the name always reads left to right and
+       the right way up. Turning a door moves its hinge, not its name, and an
+       upside-down label is never correct. The inverse of rotate-then-mirror is
+       mirror-then-rotate-back. */
+    transform: scaleX(var(--flip, 1)) rotate(calc(var(--rot, 0) * -90deg));
+}
+
+/* A dark screen needs light text; a door's label sits over its swing arc. */
+.sp-art[data-type="screen"] .sp-art-label { color: rgba(255, 255, 255, .8); }
+.sp-art[data-type="door"] .sp-art-label {
+    color: var(--sp-ink);
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+}
+
+.sp-art[data-type="screen"] {
+    background: #1f2937;
+    border: 2px solid #0f172a;
+    border-radius: 2px;
+}
+
+.sp-art[data-type="screen"]::after {
+    content: "";
+    position: absolute;
+    inset: 15%;
+    border: 1px solid #475569;
+}
+
+/* Door: artwork carries the leaf and its swing arc, so mirroring the piece
+   moves the hinge to the other side. */
+.sp-art[data-type="door"] {
+    background-image: url("../img/door.png");
+}
+
+/* A wall, for rooms that are not a plain rectangle. Stretch it to length and
+   turn it to run the other way. */
+.sp-art[data-type="wall"] {
+    background: var(--sp-ink);
+    border-radius: 1px;
+}
+
+.sp-art[data-type="cupboard"] {
+    background: #cbb897;
+    border: 1px solid var(--sp-wood-line);
+    border-radius: 2px;
+}
+
+.sp-art[data-type="cupboard"]::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 10%;
+    bottom: 10%;
+    width: 1px;
+    background: var(--sp-wood-line);
+}
+
+/* ------------------------------------------------------ corner badges */
+
+/* z-index:2, above the name band's own z-index:1 - per the Blueprint's own
+   mockup, the bottom two badges sit on top of the band edge, not behind
+   it. (An earlier draft reasoned this the other way round, by wrong
+   analogy with the register wash - a wash covers the whole tile and must
+   stay clear of the name, but a small corner badge is meant to be seen.) */
+.sp-badge {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(var(--cell) * .22);
+    height: calc(var(--cell) * .22);
+    min-width: 15px;
+    min-height: 15px;
+    padding: 0 2px;
+    background: var(--sp-accent);
+    color: #fff;
+    font-size: calc(var(--cell) * .11);
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    overflow: hidden;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    pointer-events: none;
+}
+
+.sp-badge-tl { top: 0; left: 0; border-radius: 0 0 4px 0; }
+.sp-badge-tr { top: 0; right: 0; border-radius: 0 0 0 4px; }
+/* Sit just above the name band, not over it. Rounded on all four corners,
+   not just the outward one tl/tr use - unlike those two, a bottom badge no
+   longer sits flush against an actual corner of the tile, so it reads as a
+   small floating chip rather than a corner piece. */
+.sp-badge-bl { bottom: var(--sp-name-h); left: 0; border-radius: 4px; }
+.sp-badge-br { bottom: var(--sp-name-h); right: 0; border-radius: 4px; }
+
+/* A badge with something to compare against, per the Blueprint's own
+   threshold rule (target/current grade only - CAT and every other source
+   stay neutral, this module's own accent colour, or a house's own colour
+   when one has been set). */
+.sp-badge-good { background: #2f7d4e; }
+.sp-badge-bad { background: #b23a2c; }
+
+/* --------------------------------------------------- badge config panel */
+
+.sp-badge-panel {
+    flex: none;
+    width: 200px;
+    order: 2;
+    padding: 14px 12px;
+    background: #fff;
+    border-left: 1px solid var(--sp-line);
+    overflow-y: auto;
+}
+
+.sp-badge-panel h2 {
+    margin: 14px 0 8px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--sp-accent);
+}
+
+.sp-badge-panel h2:first-child { margin-top: 0; }
+
+.sp-stage { order: 1; }
+
+.sp-badge-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.sp-badge-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    padding: 4px;
+    border: 1px dashed var(--sp-line);
+    border-radius: 4px;
+    background: var(--sp-panel);
+    font-size: 11.5px;
+    text-align: center;
+    color: var(--sp-ink);
+    cursor: grab;
+}
+
+.sp-badge-slot.is-empty {
+    color: var(--sp-muted);
+    font-style: italic;
+    cursor: default;
+}
+
+.sp-badge-palette {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sp-badge-chip {
+    padding: 5px 8px;
+    border: 1px solid var(--sp-line);
+    border-radius: 4px;
+    background: var(--sp-panel);
+    font-size: 12px;
+    color: var(--sp-ink);
+    cursor: grab;
+}
+
+.sp-badge-chip:hover { border-color: var(--sp-accent); }
+
+/* --------------------------------------------------------- name picker */
+
+/* Mirrors .sp-backdrop's own shape (position:absolute, inset:0) so the
+   .sp-item tiles inside position themselves against the room itself, not
+   against this wrapper - the wrapper exists only so room.js's own
+   render() (which clears .sp-item elements it finds as *direct* children
+   of #spRoom) never touches anything picker mode drew. */
+.sp-picker-layer {
+    position: absolute;
+    inset: 0;
+}
+
+/* The whole point of this mode is tapping open floor, not dragging a
+   tile - .sp-item's own cursor:grab would be a false promise here. */
+.sp-picker-tile { cursor: pointer; }
+
+.sp-picker-tile,
+.sp-picker-tile .sp-student {
+    transition: transform .2s ease, opacity .2s ease;
+}
+
+/* The continuously-cycling highlight: a yellow wash over whichever tile
+   the randomiser currently lands on, gone the instant it moves to the
+   next one - no transition, since a flicker reads as a flicker only when
+   it snaps rather than fades. */
+.sp-picker-flicker::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(250, 204, 21, .55);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.sp-picker-dim { opacity: .28; }
+
+.sp-picker-spotlight {
+    z-index: 20;
+}
+
+.sp-picker-spotlight .sp-student {
+    transform: scale(2.4);
+    box-shadow: 0 12px 30px -10px rgba(0, 0, 0, .55);
+    outline: 3px solid var(--sp-accent);
+    outline-offset: 2px;
+}
+
+/* ---------------------------------------------------- rewards / room exits */
+
+/* Arm buttons: Reward / Sanction, in the toolbar. Only one is ever armed
+   at once (js/mode.rewards.js unsets the other when either is clicked).
+   Pastel at rest so the two are told apart before either is armed; a
+   deeper shade of the same hue when armed, rather than a generic accent
+   colour, so which one is armed reads at a glance. */
+#spArmReward {
+    background: #d9f2e0;
+    border-color: #9bd8ae;
+    color: #1f6b3a;
+}
+#spArmReward.is-armed {
+    background: #15803d;
+    border-color: #15803d;
+    color: #fff;
+}
+
+#spArmSanction {
+    background: #fbdede;
+    border-color: #e8a6a6;
+    color: #8a2323;
+}
+#spArmSanction.is-armed {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: #fff;
+}
+
+/* A brief confirmation flash on a tile just rewarded/sanctioned - not a
+   persistent mark, just a moment's feedback that the click landed. Removed
+   again by js/mode.rewards.js a half-second after it is added. */
+.sp-reward-flash .sp-student { outline: 4px solid #15803d; }
+.sp-sanction-flash .sp-student { outline: 4px solid #b91c1c; }
+
+/* Room Exits: a small badge showing how long a student has been out,
+   ticking live. Sits over the top-right corner, matching the corner-badge
+   convention already used elsewhere on this tile. */
+.sp-roomexit-out .sp-student { opacity: .55; }
+
+.sp-roomexit-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 3;
+    padding: 1px 5px;
+    background: #b91c1c;
+    color: #fff;
+    font-size: calc(var(--cell) * .13);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    border-radius: 0 0 0 4px;
+}

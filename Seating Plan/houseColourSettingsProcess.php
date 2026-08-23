@@ -24,6 +24,40 @@
  * @link     https://gibbonedu.org
  */
 
-// Shared helpers for the Seating Plan module. Logic lives in src/ classes,
-// which are autoloaded as Gibbon\Module\SeatingPlan; this file exists for the
-// procedural helpers Gibbon expects a module to be able to provide.
+use Gibbon\Http\Url;
+use Gibbon\Module\SeatingPlan\Domain\BadgeGateway;
+
+require __DIR__.'/../../gibbon.php';
+
+$URL = Url::fromModuleRoute('Seating Plan', 'houseColourSettings');
+
+if (
+    isActionAccessible(
+        $guid,
+        $connection2,
+        '/modules/Seating Plan/houseColourSettings.php'
+    ) == false
+) {
+    $URL = $URL->withReturn('error0');
+    header("Location: {$URL}");
+    exit;
+}
+
+$badgeGateway = $container->get(BadgeGateway::class);
+$houses = $badgeGateway->selectHouses();
+$saved = 0;
+
+foreach ($houses as $house) {
+    $field = 'colour'.$house['gibbonHouseID'];
+    $colour = $_POST[$field] ?? '';
+
+    if (!preg_match('/^#[0-9a-fA-F]{6}$/', $colour)) {
+        continue;
+    }
+
+    $badgeGateway->saveHouseColour($house['gibbonHouseID'], $colour);
+    ++$saved;
+}
+
+$URL = $URL->withReturn($saved > 0 ? 'success0' : 'error1');
+header("Location: {$URL}");

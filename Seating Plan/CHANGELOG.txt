@@ -1,6 +1,827 @@
-CHANGELOG
-=========
+Seating Plan
+============
+Graphical classroom seating plans for Gibbon.
 
-v0.0.00
+
+v0.13.00
+--------
+Added
+  - Right-click a student in Rewards mode to take a point back off them.
+    It removes one of whichever type is armed, the mirror of a left-click.
+    The count stops at zero.
+  - The status bar now says which button is armed and what a click does,
+    and keeps saying it, rather than showing a message once and clearing.
+  - Administrators can correct or delete a student's record for a lesson,
+    from that student's page under Reports. Reward and sanction counts can
+    be changed; a room exit's times can be changed, and clearing the time
+    back reopens it. Every change is written to the system log with the
+    old and new values.
+  - The above needs the new "Manage Records" permission, which nobody has
+    except administrators until you grant it.
+
+Changed
+  - Taking a point back never removes a Behaviour record, and putting the
+    point back never writes a second one. The module now counts the
+    records it has written rather than watching for the threshold being
+    crossed, so the same crossing cannot be written twice.
+
+Fixed
+  - A fresh install could not create the room layout table. It had lost
+    its primary key line, which MySQL rejects outright on a column marked
+    auto_increment. Existing installations were unaffected.
+
+Database
+  - seatingPlanReward gains positiveLogged and negativeLogged, both
+    starting at zero.
+
+
+v0.12.04
+--------
+Changed
+  - The picker now works through the class instead of picking at random.
+    Everyone in a group gets asked before anyone is asked a second time,
+    and the same student is never chosen twice running. It used to pick at
+    random each time, so it would happily land on the same child four
+    times while somebody else was never asked.
+  - Ability bands are now thirds of the room rather than thirds of the
+    students who have a CAT score. With only a few scores on file, the
+    left and right bands could contain a single student, so tapping there
+    always picked the same one. Students with no score rank in the middle.
+
+
+v0.12.03
+--------
+Fixed
+  - Picker mode did nothing. Most of its code had gone missing, so opening
+    it drew the room and then stopped. Restored: the highlight cycles as
+    soon as you enter, tapping the left, middle or right of the room picks
+    from that ability band, and tapping again starts it running.
+
+
+v0.12.02
+--------
+Added
+  - You can now use a room layout somebody else drew, change it, and save
+    it as your own. Your save goes to a new copy. Their layout is left
+    alone.
+  - When the person you copied from changes their layout, your copy is
+    tagged "Newer version available" in Room Layouts, and the room says so
+    when you open it. You can take their version or keep yours.
+  - Before you decide, both rooms are drawn side by side. Furniture you
+    would lose is outlined in red, furniture you would gain in green.
+  - Taking their version replaces your furniture but keeps your layout,
+    its name and its seating plans. Students already seated move to the
+    nearest free chair. Anyone with no chair left is unseated.
+
+Changed
+  - Opening a room with no layout of your own now picks the most recently
+    updated one anyone has drawn for that room. It used to pick whichever
+    sorted first by name, which could be a stale one.
+  - Duplicating a layout records what it was copied from, so duplicates
+    get the same update prompt.
+
+Fixed
+  - Saving a seating plan failed with "You do not have access to this
+    action". Class lists are stored without leading zeros, and the checks
+    that read them were still matching against the padded form.
+  - Saving a seating plan also hit a fatal error from a missing import.
+  - Seating and Register mode would not open at all. The Markbook adapter
+    asked for a Gibbon\Core object in its constructor, which cannot be
+    built automatically, and that took out everything depending on it.
+  - The 0.12.01 database migration failed part-way on MySQL when two
+    seating plans shared a class set and a student. It now merges them.
+
+Database
+  - seatingPlanRoomLayout gains seatingPlanRoomLayoutIDSource and
+    sourceTimestamp, both empty for existing layouts.
+
+
+v0.11.00
+--------
+Added
+  - Room Layouts gains an Import & Export page. Export any layouts you can
+    see - your own, and any a colleague has shared - as a single JSON
+    file. Import brings them back, into a room you choose.
+  - An exported file holds the room size, the furniture, and the names of
+    the layout and its room. It holds no owner, no students, no seating
+    plans and no register: there is nothing in it that identifies anyone,
+    so it contains no identifying information.
+  - Importing always creates a new layout belonging to you. It never
+    changes or replaces one that is already there, so importing the same
+    file twice gives two copies rather than overwriting the first.
+    The import cannot modify an existing layout.
+  - Import validates furniture types and room bounds before writing.
+    Invalid furniture is reported and no empty layout is created.
+    Files from newer versions of the module are rejected.
+
+
+  - The room in the file is remembered by name only, which means nothing
+    in another installation, so the room is always chosen on the import
+    form. That is what makes a layout portable between schools.
+
+Database
+  - No new tables. The two new pages are covered by the existing Room
+    Layouts action, whose URLList an installed copy is updated to include.
+
+
+v0.10.00
+--------
+Added
+  - Settings menu. Badge Settings moves into it, alongside a new
+    Behaviour Settings page.
+  - Behaviour Settings decides whether rewards and sanctions are also
+    written into the Behaviour module. Off by default, so a quick tap
+    during a lesson does not become a permanent behaviour record unless
+    the school asks for it. When on: a threshold (how many points of one
+    type in one lesson before the first record is written, default 3),
+    an interval (one more record every this many points after that,
+    default 1, set to 0 for a single record per lesson), and the
+    descriptor, level and incident text to write - descriptors and levels
+    offered only where the Behaviour module itself has them turned on,
+    and read from its own settings so this page can never store one
+    Behaviour would reject.
+  - Reports menu, covering rewards, sanctions and room exits. Both pages
+    filter by date range, student, year group, form group, subject,
+    class, recording teacher and room, and group by any of student,
+    class, subject, year group, form group, recording teacher, room or
+    date - the grouping drives both the chart and the table. Student rows
+    carry a circular photo and link through to a per-student page
+    showing that student's own points and exits lesson by lesson.
+  - Reports is a grouped action: Reports_all sees every student,
+    Reports_my only students in classes the viewer teaches plus anything
+    they recorded themselves.
+
+Changed
+  - Rewards mode's corner badges now count the points given in this
+    lesson, not the running total for the day. That is the number the
+    Behaviour threshold is measured against, so the badge now explains
+    why a record was written.
+  - A reward or sanction click records into the module's own ledger
+    first, always - the Behaviour record, if any, follows from it. Points
+    are no longer counted by matching a comment string.
+  - Rewards mode and Room Exits mode both send the lesson they are in,
+    and both endpoints re-resolve it from the timetable rather than
+    trusting the room and date posted to them.
+  - The reward badge count comes back from the server after each click
+    instead of being incremented locally, so two teachers clicking in one
+    room stay in sync.
+  - The Staff Dashboard tab now opens on the same day My Lessons itself
+    would: today, or the most recent day that actually had lessons. It
+    previously used today verbatim, so it sat empty every weekend and
+    holiday while My Lessons showed Friday's.
+
+Database
+  - New table seatingPlanReward: one row per student, lesson and
+    recording teacher, with a running count of rewards and sanctions.
+  - seatingPlanRoomExit gains gibbonCourseClassID, gibbonTTColumnRowID
+    and gibbonSchoolYearID, so an exit can be reported by class, subject
+    and period rather than only by room and time. Rows written before
+    this version keep 0, which reads as "not attributable" - the same
+    meaning it has for a student in more than one of a room's co-taught
+    classes.
+  - Nine new gibbonSetting rows under the Seating Plan scope.
+  - Badge Settings moves from the Plans action category to Settings, and
+    the Behaviour Settings and Reports actions are added.
+
+
+v0.9.02
 -------
-Version details here...
+Changed
+  - The Reward button is pastel green, Sanction pastel red, both at rest
+    and deepening to a solid colour once armed.
+  - Rewards mode's student tiles now carry a running count: bottom-left in
+    green for rewards recorded today, bottom-right in red for sanctions,
+    using the same corner placement as the existing badges. A count of
+    zero shows nothing, on either side independently, and the badges sit
+    above the name band rather than over it. Counted per student from
+    this tool's own records for the day (gibbonBehaviour rows this module
+    itself wrote, identified by their fixed comment marker) - not every
+    Behaviour record for the day regardless of source, since
+    gibbonBehaviour has no room/period column to scope more tightly than
+    that.
+
+Database
+  - None.
+
+
+v0.9.01
+-------
+Fixed
+  - Rewards and Room Exits mode showed student tiles floating over an
+    empty floor - the furniture backdrop was never drawn for either.
+    Both now build it the same way Seating and Picker mode already do.
+
+Database
+  - None.
+
+
+v0.9.00
+-------
+Rewards, sanctions, and room exits were added to the seating-plan interface.
+
+
+Added
+  - A Rewards tab: arm Reward or Sanction, then click students to record
+    one straight away for each. Writes a real gibbonBehaviour row - found
+    by every existing Behaviour report and the student's own profile -
+    with no descriptor or level (just two generic buttons, by design) and
+    does not trigger the Behaviour module's tutor emails or IN-student flags.
+
+
+  - A Room Exits tab: click a seated student to mark them out, click again
+    to mark them back in - no arming, no reason captured, just who left,
+    when, and when they returned. A small live-ticking badge shows how
+    long a student has been out. A new table, seatingPlanRoomExit, since
+    Gibbon has no concept of this at all.
+  - Both tabs offered only to a teacher of one of the room's classes, the
+    same population who can arrange the seats - and both write
+    immediately, with no batch Save for either.
+
+Database
+  - seatingPlanRoomExit (new): one row per student per exit, open (timeIn
+    NULL) or closed.
+
+
+v0.8.04
+-------
+Changed
+  - The slowing-down settle after a tap shortened from 5-6 seconds to
+    about 3.
+
+Database
+  - None.
+
+
+v0.8.03
+-------
+Changed
+  - A tap no longer jumps straight to the chosen student. The flicker
+    narrows to the tapped third's ability band and slows down step by
+    step, like a wheel losing momentum, before landing on the pick - a
+    few seconds of drama rather than an instant answer.
+
+Database
+  - None.
+
+
+v0.8.02
+-------
+Changed
+  - The picker's flicker slowed down (90ms a step to 220ms), and the chosen
+    student's tile now enlarges much further (1.55x to 2.4x).
+
+Database
+  - None.
+
+
+v0.8.01
+-------
+Changed
+  - The picker now runs continuously rather than waiting to be started: the
+    yellow highlight begins cycling across every seated student the moment
+    the mode loads. A tap stops it and settles on a random face from the
+    tapped third's ability band, held large on screen; the next tap clears
+    that pick and sets the cycle going again. Leaving the mode (a full page
+    navigation, like every other mode change) stops it - there is nothing
+    left running to clean up by hand.
+
+Database
+  - None.
+
+
+v0.8.00
+-------
+Phase 6: the name picker.
+
+Added
+  - A Picker tab, offered to any teacher of one of the room's classes.
+    Split the room into three vertical thirds by eye: tap the left third
+    for a random low-ability seated student, the middle for mid, the right
+    for high, ranked by CAT4 "Mean SAS". A brief flicker settles on one
+    face, enlarged and spotlit; tap anywhere to clear it and pick again.
+  - A student with no CAT score is never excluded - they are folded into
+    the middle third rather than left unpickable. With fewer than 3 seated
+    students carrying a real score, every third draws from the whole room
+    instead, every third uses the whole room. This keeps small groups from
+    being split into artificial ability bands.
+
+  - Nothing here is ever saved: no Save button, no write endpoint. The
+    whole mode runs independently of the room's own drag/select/save
+    pipeline (its own click handler on the room, not room.js's).
+
+Database
+  - None.
+
+
+v0.7.01
+-------
+Fixed
+  - Chrome's "Translate this page?" prompt could still appear on room.php
+    despite the existing notranslate class/translate="no" attribute on the
+    room itself - that only partly suppresses it. Chrome's own documented,
+    reliable opt-out is a <meta name="google" content="notranslate"> tag in
+    <head>; since fullscreen.php's own <head> is core and outside this
+    module, the tag is now added at runtime via a small inline script,
+    as early in the page as possible.
+
+Database
+  - None.
+
+
+v0.7.00
+-------
+Changed
+  - Corner badge configuration is now a per-teacher setting, not a per-plan
+    one. Set your four badges once and they follow you into every room you
+    open, instead of having to be dragged into place again for every class.
+    Saves itself the instant the panel changes, independently of the room's
+    own Save button.
+
+Database
+  - seatingPlanBadgeConfig (new): one badge configuration per teacher.
+  - seatingPlanPlan.options is no longer used for badges (kept, unused,
+    for a possible future border-mode/name-format setting).
+
+
+v0.6.02
+-------
+Fixed
+  - The bottom two corner badges moved above the name band instead of
+    layering over it (v0.6.01's fix only reordered the stack, it didn't
+    move them). Their "bottom" is now the band's own rendered height (a
+    shared --sp-name-h custom property), so they float just above the name
+    rather than overlapping it, and are rounded on all four corners like a
+    floating chip rather than a flush corner piece.
+
+Database
+  - None.
+
+
+v0.6.01
+-------
+Fixed
+  - Both new hooks (Staff Dashboard, Lesson Planner) failed with "The
+    selected page cannot be displayed due to a hook error." A hook runs
+    inside a different module's page, and Gibbon only auto-registers the
+    Gibbon\Module\SeatingPlan\ namespace for whichever module the session
+    says is current - true for room.php and seatingPlans.php themselves,
+    not for a hook borrowed into someone else's page. Both hook files now
+    register the namespace explicitly before using any of this module's own
+    classes.
+  - The bottom two corner badges were rendered behind the student's name
+    band, not on top of its edge as the Blueprint's own mockup shows. Fixed
+    the badge's stacking order (it was reasoned by wrong analogy with the
+    register mode wash, which does need to stay behind the name).
+
+Database
+  - None.
+
+
+v0.6.00
+-------
+Phase 5: corner badges, and the Staff Dashboard / Lesson Planner hooks.
+
+Added
+  - Up to four corner badges on a student tile in Seating mode, configured
+    from a slide-in panel (the "Badges" toolbar button): drag a badge into
+    one of the four corners, drag it out again to clear it, or onto another
+    badge to swap the two. Saved per plan, alongside the seating itself.
+  - Eleven badge sources: the five core Gibbon alert types (Individual
+    Needs, Academic, Behaviour, Medical, Privacy), house, form group, year
+    group, target grade, current (cumulative) grade, and CAT4's "Mean SAS"
+    score. Target and current grade carry a green/red state against the
+    student's own target; every other badge is neutral.
+  - A house's badge colour is set from a new Badge Settings admin page,
+    since core's own gibbonHouse has no colour of its own, only a logo.
+  - A Seating Plans tab on the Staff Dashboard, and an "Open Seating Plan"
+    link inside a lesson plan, both reaching straight into the room for
+    that lesson without going through My Lessons first.
+
+Changed
+  - The row-building logic behind My Lessons is now shared with the new
+    Staff Dashboard hook (MyLessonsTable), rather than existing only inside
+    seatingPlans.php - both render the same table from one source.
+
+Database
+  - seatingPlanHouseColour (new): one colour per house.
+  - Two gibbonHook rows (Staff Dashboard, Lesson Planner) and a new
+    gibbonAction (Badge Settings, Admin-only).
+
+
+v0.5.00
+-------
+Changed
+  - Register mode no longer saves on every click. Cycling a student's mark
+    only changes it locally; nothing is written to core's attendance tables
+    until "Save Attendance" is pressed. This matches how core's own Take
+    Attendance page already works (one form, one Submit for the whole
+    class), and fixes a real problem with the old click-to-save design: a
+    mis-click that took three cycles to correct wrote three permanent rows
+    for what was really one mark.
+  - Each tile's own border now shows red or green: red means today's exact
+    period has no real record for that student yet, green means it does.
+    This is deliberately not the same as "did the teacher touch this tile" -
+    a student whose tile shows a mark only because it was carried forward
+    from an earlier period (core's own crossfill/wildcard rule) starts red
+    too, and is included in the very next save, because nothing has
+    actually been recorded for *today's* period for them yet. A save only
+    ever writes students who are red; an already-green tile left alone is
+    never resubmitted.
+  - The Save Attendance button is disabled until there is something to
+    save, and enabled the instant a tile goes red - including on page load,
+    if any student's tile is showing a crossfilled mark that still needs
+    recording for today.
+  - register_saveAjax.php now accepts a batch of marks in one request
+    instead of one mark per request, matching seating_saveAjax.php's own
+    existing all-or-nothing batch shape. One invalid mark in a save (e.g. a
+    code deactivated after the page loaded) rejects the whole save with
+    nothing written, rather than writing some marks and silently dropping
+    others.
+
+Database
+  - None.
+
+
+v0.4.02
+-------
+Changed
+  - My Lessons' Attendance column now shows three states, not two: a green
+    check only once every eligible student in the room has a mark (not just
+    "someone started"), an amber warning icon while some but not all are
+    marked (hover for "N of M registered"), and the grey question mark when
+    nobody has been marked yet. "Eligible" excludes a student ambiguous in
+    that room+period, exactly as Register mode's own tiles do - such a
+    student can never be marked there, so requiring them would make 100%
+    unreachable.
+
+Database
+  - None.
+
+
+v0.4.01
+-------
+Changed
+  - Register mode's attendance mark is now a colour wash over the top of the
+    photo, not a coloured border: the code's own short form (e.g. "P") shows
+    large and white in the wash, with the code's full name (e.g. "Present")
+    in a smaller label beneath it. The name band stays clear underneath,
+    since its own opaque background already sits above the wash. A tile's
+    mark swipes in with a short wipe animation whenever it changes,
+    including a correction reverted after a failed save. The tile's border
+    itself no longer changes with the mark.
+  - My Lessons ("seatingPlans.php") gains an Attendance column: a green
+    check if any of the room's classes have been registered for that
+    lesson, a grey question mark if not - the same icon pair core's own
+    Staff Dashboard Planner tab uses for the same question.
+
+Database
+  - None.
+
+
+v0.4.00
+-------
+Phase 4: the register.
+
+Added
+  - A Register tab, next to Furniture and Seating, offered only to a teacher
+    with core's own Attendance permission. Click a student to cycle through
+    the active attendance codes for your role, in the school's own
+    configured order; the tile's border shows the current mark - green for
+    present, amber for late, red for absent, grey for not yet marked. Each
+    click saves itself immediately; there is no batch Save button here.
+  - A double lesson writes attendance for every period it spans from one
+    click, each against the student's own class - co-taught classes in the
+    same room are not required to share the same number of periods.
+  - Rows written here are indistinguishable from ones core's own Take
+    Attendance page would write, and are found by every existing attendance
+    report and the student profile's own Attendance tab. Proved directly:
+    core's real save path was submitted twice for the same student, class
+    and period and its actual resulting rows inspected, not assumed from
+    reading the code alone.
+  - A student enrolled in more than one of a room's co-taught classes shows
+    but cannot be marked here, since which class to write against cannot be
+    guessed. A code that has gone inactive, or is no longer allowed for a
+    teacher's role, still displays correctly on a mark already made with it,
+    but cannot be chosen again.
+
+Database
+  - None. Register writes to core's own gibbonAttendanceLogPerson and
+    gibbonAttendanceLogCourseClass tables, nothing of this module's own.
+
+
+v0.3.02
+-------
+Changed
+  - Mode-switch buttons (Furniture/Seating) now carry a Heroicon alongside
+    their text, not text alone.
+  - The room-size banner (editable steppers, or the plain "20 x 14") no
+    longer shows in seating mode - it belongs to furniture mode, where the
+    room itself is being drawn.
+
+Fixed
+  - Chrome's "Translate this page?" prompt, triggered by a room full of
+    student names in scripts it does not recognise as English. The room and
+    each name band now carry notranslate / translate="no".
+
+
+v0.3.01
+-------
+Changed
+  - A student's name band is now black text on a white background, not white
+    on the module's teal - easier to read against a bright photo.
+  - My Lessons opens a room straight into seating mode when someone has
+    already been seated there, instead of always opening onto furniture.
+    A room with a layout but nobody seated yet still opens onto furniture.
+
+Fixed
+  - Delete/Backspace could remove a student tile from seating mode, and if
+    they were seated, silently drop that seat on the next save. Seating
+    mode's students are not deletable; the shortcut is now a no-op there.
+
+Database
+  - None. seatedCount is computed from existing seatingPlanSeat/Plan rows.
+
+
+v0.3.00
+-------
+Phase 3: seating mode.
+
+Added
+  - A Seating tab, next to Furniture, for any room opened from a timetabled
+    lesson that already has a furniture layout drawn. Drag a student onto a
+    chair to seat them; drag onto an occupied chair to swap the two; drop
+    between two chairs and it reverts, since neither is a clear choice; drop
+    anywhere else on open floor and it just stays there for the session -
+    only a real chair assignment is ever saved, so that also doubles as the
+    way to unseat someone.
+  - The room's own furniture is drawn underneath the students as a read-only
+    backdrop, from the same layout furniture mode draws.
+  - A seating plan is keyed to the room's furniture layout and the exact set
+    of classes sharing it, not to one date, so co-taught sections (an IB
+    group split into HL/SL/HSD, for instance) share one arrangement and it
+    carries over from lesson to lesson.
+  - Each student shows a first-name tile with a photo, or the theme's usual
+    placeholder when they have none. Two students sharing a first name both
+    gain a surname initial, so they stay tellable apart.
+
+Database
+  - seatingPlanPlan and seatingPlanSeat, present but unused since v0.2.00,
+    are now written to.
+
+
+v0.2.02
+-------
+Changed
+  - My Lessons now shows one row per room per period, not one per class. A
+    teacher running an IB group split into HL/SL/HSD sections in one room saw
+    three near-identical rows; they now see one, listing all three classes
+    together. A double lesson still makes two rows, since its two periods are
+    different timetable slots.
+  - If the day being viewed has nothing timetabled and no day was chosen on
+    purpose, the page opens on the most recent day that did have lessons
+    instead of an empty table. Choosing an empty day deliberately still shows
+    it empty.
+
+
+v0.2.01
+-------
+Added
+  - My Lessons replaces the Seating Plans placeholder: the teacher's timetable
+    for a chosen day, each lesson opening its room. Until now nothing in the
+    interface led to a room for a lesson, only to a room for a layout.
+  - Each lesson says how many other classes share the room at that time, and
+    whether a layout has been drawn for it yet.
+  - Lessons being covered are listed too, named for whoever is absent. A
+    substitute is not enrolled in the class, so their lessons never appear in
+    their own timetable and are found separately.
+  - A lesson with no room on the timetable says so, and offers no way in.
+
+
+v0.2.00
+-------
+The module now has one full-screen room screen instead of a designer page.
+Everything about drawing a room is unchanged; what changed is what it sits in.
+
+Added
+  - RoomContext resolves either a layout or a timetabled period into the same
+    room. A period brings the room, every class co-taught in it, and the date;
+    a layout brings only the room. Modes that need students are offered only
+    when there are students to show.
+  - room.php replaces layout_edit.php as the way in, addressed as
+    room.php?layout=42 or room.php?period=1180&date=2026-08-24&mode=furniture.
+  - A mode strip in the header, shown once more than one mode is available.
+
+Changed
+  - designer.js is split into room.js, which owns the grid, fitting, dragging,
+    selection and saving, and mode.furniture.js, which owns the catalogue, the
+    artwork and the facing rules. A mode supplies its items, their artwork and
+    what a click means; everything else is shared.
+
+No behaviour changed in this release. The room is drawn, dragged, turned,
+mirrored and saved exactly as before.
+
+
+v0.1.13
+-------
+Fixed
+  - Ctrl-clicking a piece also turned it. A press with no movement counts as a
+    click, and a click turns a piece; adding to a selection now does not.
+  - A plain click on one piece of a group no longer turns the whole group. It
+    collapses the selection to that piece instead, which is what clicking one
+    of several things is normally taken to mean. Dragging the group still moves
+    all of it, and Rotate still turns all of it.
+
+
+v0.1.12
+-------
+Added
+  - Ctrl-click picks out several pieces and moves them as one. The group keeps
+    its shape against a wall: it stops when its most constrained member would
+    leave the room, rather than collapsing one piece at a time. Rotate, Mirror
+    and Delete all apply to the whole selection, and Ctrl+A takes everything.
+  - Clicking bare floor clears the selection.
+
+Changed
+  - A wall is a tenth of a cell deep by default, and can be dragged no thinner
+    because that is already the floor.
+
+
+v0.1.11
+-------
+Fixed
+  - Right-clicking a door turned it as well as mirroring it. A right-click was
+    starting a drag that ended as a click, and a click turns a piece. Only the
+    primary button drags now.
+  - Walls were far too thick, and thickened further on any resize: the floor on
+    a resize was half a cell, which is thicker than a wall is drawn. The floor
+    is now a tenth of a cell, and a wall starts thinner.
+  - Computers sit above the furniture they stand on, below the chairs at them.
+    Stacking is three named layers rather than a single seat flag, and
+    selecting a piece can no longer lift it into the layer above.
+
+
+v0.1.10
+-------
+Fixed
+  - A piece that cannot be resized now takes its size from the catalogue when
+    the designer loads, matching what the server already enforces on save.
+    Without it, a door saved at its old size was drawn and measured in the old
+    box, so it could report that it did not fit while looking as if it should.
+  - Labels stay upright and read left to right whatever the piece does. A door
+    turned upside down was showing its name upside down with it.
+
+
+v0.1.09
+-------
+Fixed
+  - "Item 31 falls outside the room" told the user nothing they could act on.
+    A piece that does not fit is now outlined in red and selected, and the
+    message names it: "The highlighted door is outside the room."
+  - Saving is refused before the request is sent, so the whole save is no
+    longer rejected by the server for one stray piece.
+  - A piece left outside the room by a change to its size in a later release is
+    pulled back inside when the layout opens, with a note to check and save.
+    Growing the door to one and a half squares in 0.1.08 could do exactly that
+    to a door already flush against a wall.
+
+
+v0.1.08
+-------
+Added
+  - Computers turn to face the chair using them, or turn their back on the wall
+    behind them when there is no chair. Auto-Face now covers both chairs and
+    computers, so the toolbar button is renamed from Face Chairs.
+  - A wall piece, for rooms that are not a plain rectangle. Stretch it to
+    length and turn it to run the other way.
+
+Changed
+  - The door is drawn from artwork at one and a half squares, replacing the
+    long drawn line and arc.
+  - A selected piece is lifted above its own peers but never above a chair. A
+    chair is where a student goes, so it stays the topmost thing in the room.
+
+
+v0.1.07
+-------
+Changed
+  - Chairs and computers are drawn from artwork in img/ rather than from CSS
+    shapes. The chair drawing shows which way it faces, so the painted-on back
+    edge is gone.
+  - A chair stays a solid white tile with a thin dark border: it marks where a
+    student will go, and in the seating plan a student tile drops onto it.
+
+
+v0.1.06
+-------
+Added
+  - The screen and the door carry their name on the plan, as the board already
+    did. A label is never mirrored with the piece it sits on, so text always
+    reads the right way round.
+  - Doors can be mirrored, putting the hinge on either side. Rotation alone
+    gives a door four orientations; with the mirror it has all eight. Use the
+    Mirror button, right-click the door, or press M.
+
+Database
+  - seatingPlanFurniture gains a flipped column. Applied by CHANGEDB, so an
+    installed module migrates in place and keeps its layouts.
+
+
+v0.1.05
+-------
+Added
+  - Chairs turn to face their desk. Drag a chair against a desk or bench and it
+    turns to face it, so it reads as tucked in rather than stranded. The rule
+    looks one chair-width out on each of the four sides and picks whichever has
+    the most work surface against it; a chair with nothing nearby is left
+    exactly as you set it, and clicking a chair still turns it by hand.
+  - Face Chairs in the toolbar applies that to every chair in the room at once,
+    for layouts drawn before this release.
+
+Changed
+  - The board is half as deep and carries a BOARD label, so a thin white bar on
+    a white floor is no longer indistinguishable from a wall.
+
+
+v0.1.04
+-------
+Fixed
+  - Open Designer did nothing but leave the page as it was. Gibbon boosts table
+    action links with htmx, which fetches the target and swaps in only its
+    #content-wrap element. A full-screen page has no such element, so nothing
+    was swapped and the chrome stayed put. The link is now a plain navigation.
+
+
+v0.1.03
+-------
+Added
+  - Orientation is chosen when a layout is created, between Layout Name and
+    Columns. Landscape starts at 20 by 14, Portrait at 14 by 20. Both numbers
+    stay editable, so the choice is a starting point and not a constraint.
+
+Changed
+  - Chairs now render above all other furniture. A chair tucked part-way under
+    a desk stays visible, so a room reads as seats rather than as furniture.
+
+
+v0.1.02
+-------
+Finer grid, and desks sized like desks.
+
+Changed
+  - Furniture now moves in tenths of a square instead of whole squares. A
+    square is still the size of a chair; the tenths let a chair be tucked
+    part-way under a desk, or a row nudged straight, instead of jumping a whole
+    chair width at a time. Hold Shift while dragging to snap to whole squares.
+  - The floor shows a faint dot for every tenth. The dots strengthen while you
+    drag, so the guide is there when it helps and quiet when it does not.
+  - A single desk is now one square and a double desk two, matching a chair
+    rather than dwarfing it. The teacher desk is three squares wide by one.
+  - Benching, boards and cupboards stretch in tenths too, down to half a square.
+
+Positions and sizes are stored in tenths of a cell throughout, so a layout
+still renders identically at any screen size.
+
+
+v0.1.01
+-------
+Fixes found while first using the designer.
+
+  - The furniture palette rendered wrongly: the icons were absolutely
+    positioned with no positioned parent and no footprint, so nine of the ten
+    collapsed and escaped the panel. Each icon now sits in its own wrapper and
+    is scaled to its real proportions.
+  - The Add Room Layout form raised "missing FormFactory" warnings and could
+    not list rooms. It now uses DatabaseFormFactory, which addSelectSpace needs.
+  - The designer no longer loads Gibbon's core stylesheet. It loads after the
+    module's own and its reset fought these rules for no benefit.
+
+Added
+  - Room size can be changed after creation, from steppers in the designer
+    toolbar. The room refuses to shrink over existing furniture and says why.
+  - Edit Details on the layout list: rename a layout, move it to another room,
+    or change whether it is shared.
+
+
+v0.1.00
+-------
+Phase 1: room designer.
+
+Added
+  - Room Layouts: create, list, duplicate, share and delete furniture layouts,
+    one per room per teacher with no fixed limit.
+  - Full-screen designer with a ten-piece furniture palette: chair, single desk,
+    double desk, teacher desk, benching, computer, board, display screen, door
+    and cupboard.
+  - Grid snapping, click to turn in quarter steps, drag-handle resizing for
+    benching, boards and cupboards.
+  - Keyboard support: Delete removes, R turns, Ctrl+S saves, Escape deselects.
+  - Whole-layout save over one JSON request, validated server side against the
+    furniture catalogue and the room bounds, written in a transaction.
+  - Layouts are shared with colleagues by default: readable and copyable by
+    anyone teaching in that room, editable only by their owner. A duplicate
+    keeps the sharing of the layout it came from.
+
+Notes
+  - Positions are stored in whole grid cells, never pixels, so a layout renders
+    correctly at any screen size.
+  - Seating plans and the register arrive in v0.2.00.
