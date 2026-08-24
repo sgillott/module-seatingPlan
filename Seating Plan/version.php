@@ -24,4 +24,4 @@
  * @link     https://gibbonedu.org
  */
 
-$moduleVersion = '0.16.00';
+$moduleVersion = '0.17.01';

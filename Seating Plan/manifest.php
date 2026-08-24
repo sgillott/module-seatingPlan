@@ -33,7 +33,7 @@ $description = 'Graphical classroom seating plans. Draw a room, seat students '
 $entryURL    = 'seatingPlans.php';
 $type        = 'Additional';
 $category    = 'Learn';
-$version     = '0.16.00';
+$version     = '0.17.01';
 $author      = 'Steve Gillott';
 $url         = 'https://github.com/SteveGillott';
 

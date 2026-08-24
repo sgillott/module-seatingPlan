@@ -363,6 +363,64 @@ $available = array_filter(
     document.documentElement.setAttribute('translate', 'no');
 }());
 </script>
+<?php if ($mode === 'seating') { ?>
+<style type="text/css">
+/*
+ * The paper side of printing a seating plan. The rest of it - what is left
+ * out, and letting the room out of the layout that fits it to a window - is
+ * in the module's own stylesheet; only these two values depend on the shape
+ * of this particular room, so only these are written here.
+ *
+ * Orientation follows the room: a room wider than it is deep goes on the
+ * paper the same way round, which is what makes a printed plan match the
+ * one on screen without anyone having to think about it.
+ *
+ * The size keyword is given on its own, so the paper stays whatever the
+ * printer is loaded with - naming A4 here would be wrong half the world
+ * over.
+ */
+@page {
+    size: <?php
+        $printLandscape = $context->getGridCols() > $context->getGridRows();
+        echo $printLandscape ? 'landscape' : 'portrait';
+    ?>;
+    margin: 8mm;
+}
+
+@media print {
+    /*
+     * --cell is set in pixels by js/room.js to fit the browser window, and
+     * that number means nothing on paper. This is the same calculation
+     * against the page instead: whichever of the room's dimensions runs out
+     * of paper first decides the size of a cell, and everything in the room
+     * is drawn from that one value.
+     *
+     * Four limits rather than two. The page-relative pair does the real
+     * work and grows the plan to whatever paper is loaded, but browsers do
+     * not agree on whether vw and vh in print mean the page or the window -
+     * and a browser that means the window makes a room far bigger than the
+     * sheet, which then prints across several of them. The millimetre pair
+     * is measured off the smallest paper this is likely to meet, so it
+     * quietly caps the other two when they are wrong. Whichever is smallest
+     * wins, so the plan still fills the page on a browser that gets it
+     * right.
+     */
+    .sp-room {
+        --cell: min(<?php
+            // Usable millimetres once the margin above is taken off, on the
+            // narrower of A4 and US Letter in this orientation.
+            $across = $printLandscape ? 263 : 194;
+            $down = $printLandscape ? 194 : 263;
+
+            echo round($across / max(1, $context->getGridCols()), 4).'mm, ';
+            echo round($down / max(1, $context->getGridRows()), 4).'mm, ';
+            echo round(96 / max(1, $context->getGridCols()), 4).'vw, ';
+            echo round(96 / max(1, $context->getGridRows()), 4).'vh';
+        ?>) !important;
+    }
+}
+</style>
+<?php } ?>
 <div class="sp-designer notranslate" id="spDesigner" translate="no" data-payload="<?php
     echo htmlspecialchars(json_encode($payload), ENT_QUOTES, 'UTF-8');
 ?>">
@@ -456,6 +514,14 @@ $available = array_filter(
             ?>"><?php
                 echo icon('solid', 'warning', 'sp-mode-icon');
                 echo __('Sanction');
+            ?></button>
+        <?php } ?>
+        <?php if ($mode === 'seating') { ?>
+            <button type="button" class="sp-btn" id="spPrint" title="<?php
+                echo __('Print the room on its own, without the toolbar.');
+            ?>"><?php
+                echo icon('solid', 'print', 'sp-mode-icon');
+                echo __('Print');
             ?></button>
         <?php } ?>
         <?php if ($canEdit && !in_array($mode, ['picker', 'rewards', 'roomexit'], true)) { ?>

@@ -3,6 +3,32 @@ Seating Plan
 Graphical classroom seating plans for Gibbon.
 
 
+v0.17.01
+--------
+Fixed
+  - Printing a seating plan could put stray pieces of furniture outside the
+    room, and drag a second, near-empty sheet out of the printer. Furniture
+    standing against a far wall was being laid out four pixels past the room
+    it belongs to, because the room's own border was being taken out of its
+    floor rather than drawn around it. On screen this never showed, since
+    the room sits in a frame that hides it. The room now prints as itself
+    and clips anything that reaches past its walls.
+  - A printed room can no longer come out larger than the paper. The size is
+    now capped in millimetres as well as being worked out from the page,
+    because browsers disagree about what a page measures while printing.
+
+
+v0.17.00
+--------
+Added
+  - A Print button on the seating plan. It prints the room on its own, with
+    no toolbar or panels, and turns the paper to match the room: landscape
+    for a room wider than it is deep, portrait for one that is deeper than
+    it is wide. The room is sized to fill the page rather than to match the
+    screen it was drawn on. Colleagues viewing a shared plan can print it
+    too.
+
+
 v0.16.00
 --------
 Added

@@ -334,6 +334,15 @@
     /* One step is a tenth of a cell: the resolution furniture moves at. */
     --step: calc(var(--cell) / 10);
 
+    /* Gibbon's own theme sets box-sizing:border-box on everything, which
+       would take this room's 2px border out of the width and height set
+       below. Furniture is positioned against the box inside that border, so
+       a piece standing against the far wall would be laid out 4px beyond the
+       room and paint over its own border - only visible in print, where the
+       room is no longer clipped by the stage around it. The border belongs
+       outside the floor, not carved out of it. */
+    box-sizing: content-box;
+
     position: relative;
     width: calc(var(--cols) * var(--cell));
     height: calc(var(--rows) * var(--cell));
@@ -1033,4 +1042,72 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     border-radius: 0 0 0 4px;
+}
+
+/* ------------------------------------------------------------------ print */
+
+/* Printing a seating plan should put the room on the paper and nothing else.
+ *
+ * The room's own size comes from --cell, which js/room.js sets in pixels to
+ * fit the browser window. That number means nothing on paper, so room.php
+ * overrides it for print with one worked out from the page itself, and sets
+ * the page orientation to match the room's shape. Everything inside the room
+ * is already sized from --cell, down to the names on the tiles, so the whole
+ * plan scales with that one value.
+ */
+@media print {
+    /* Core's own alerts, and anything else that shares the body. */
+    body > *:not(.sp-designer) { display: none !important; }
+
+    .sp-bar,
+    .sp-notice,
+    .sp-palette,
+    .sp-help,
+    .sp-badge-panel,
+    .sp-designer aside { display: none !important; }
+
+    /* The room is fitted to a window by a column of flex boxes that scroll.
+       On paper there is no window to fit and nothing to scroll, so the boxes
+       stand down and let the room take its natural size. */
+    .sp-designer,
+    .sp-body,
+    .sp-stage {
+        display: block !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+        background: none !important;
+    }
+
+    /* The designer is pinned to the viewport with position:fixed, which on
+       paper means pinned to the page box - and a room taller than the page
+       would be cut off there rather than being allowed to size itself. */
+    .sp-designer {
+        position: static !important;
+        inset: auto !important;
+    }
+
+    /* Furniture is drawn with background colours, and browsers drop those
+       when printing unless asked not to. Without this the paper comes out
+       with the names on it and no room around them. */
+    .sp-room {
+        margin: 0 !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+
+        /* The room prints as itself and nothing else. On screen the stage
+           around it hides anything that reaches past its walls; on paper
+           there is no stage, so the room does its own clipping. Without
+           this, something overhanging the room prints outside it and drags
+           a second, near-empty sheet out of the printer. */
+        overflow: hidden !important;
+    }
+
+    /* Nothing on paper is selected, being dragged, or about to be saved. */
+    .sp-item.is-selected::after,
+    .sp-handle { display: none !important; }
 }

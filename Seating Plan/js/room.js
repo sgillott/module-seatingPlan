@@ -946,6 +946,20 @@ window.SeatingPlanRoom = (function () {
         });
     }
 
+    /**
+     * Prints the room on its own.
+     *
+     * What gets left out, and how the room is sized to the paper, is the
+     * stylesheet's business - see the print rules in css/module.css and the
+     * page orientation room.php works out from the room's own shape. All
+     * that is needed here is to drop the selection first, since a selected
+     * tile's accent outline means nothing on paper.
+     */
+    function printRoom() {
+        select(-1);
+        window.print();
+    }
+
     /* ----------------------------------------------------------- interface */
 
     var room = {
@@ -1004,6 +1018,14 @@ window.SeatingPlanRoom = (function () {
         roomEl.addEventListener('pointermove', onPointerMove);
         roomEl.addEventListener('pointerup', onPointerUp);
         roomEl.addEventListener('pointercancel', onPointerUp);
+
+        // Wired whether or not the room can be edited: a colleague looking at
+        // a shared plan has as much use for a printout as its owner.
+        var printButton = document.getElementById('spPrint');
+
+        if (printButton) {
+            printButton.addEventListener('click', printRoom);
+        }
 
         if (config.canEdit) {
             wireToolbar();
