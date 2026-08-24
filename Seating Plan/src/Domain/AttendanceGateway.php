@@ -193,24 +193,36 @@ class AttendanceGateway extends Gateway
      * code has since been deactivated or role-restricted still resolves to
      * a real bucket for display - see AttendanceGateway's class docblock.
      *
-     * @param array  $personIDsByClass       [gibbonPersonID => their own
-     *                                        gibbonCourseClassID], one entry
-     *                                        per unambiguous roster student.
-     * @param string $anchorTTDayRowClassID  The period being viewed.
-     * @param string $date                   Y-m-d.
-     * @param string $crossFillClasses       The Attendance/crossFillClasses
-     *                                        setting, 'Y' or 'N'.
+     * Two classes can share a room for the same period, and each still has
+     * its own gibbonTTDayRowClass row. The period a mark has to match is
+     * therefore the student's own class's period, which is why the anchor
+     * arrives here per class rather than as one value for the room.
+     *
+     * @param array  $personIDsByClass [gibbonPersonID => their own
+     *                                  gibbonCourseClassID], one entry per
+     *                                  unambiguous roster student.
+     * @param array  $anchorByClass    [(int) gibbonCourseClassID =>
+     *                                  gibbonTTDayRowClassID], the period
+     *                                  being viewed for each class in the
+     *                                  room. Keyed on the integer value
+     *                                  because the IDs arrive zerofilled
+     *                                  from some queries and unpadded from
+     *                                  others, and PHP keeps a zerofilled
+     *                                  string as a string key.
+     * @param string $date             Y-m-d.
+     * @param string $crossFillClasses The Attendance/crossFillClasses
+     *                                  setting, 'Y' or 'N'.
      *
      * @return array [gibbonPersonID => ['gibbonAttendanceCodeID', 'name',
      *                'nameShort', 'bucket', 'exact']], only for students who
      *                have a mark. 'exact' is true only when the resolved
-     *                row's own gibbonTTDayRowClassID is this exact anchor
-     *                period, false when it was pulled in via the wildcard
-     *                or crossfill fallback.
+     *                row's own gibbonTTDayRowClassID is that student's own
+     *                anchor period, false when it was pulled in via the
+     *                wildcard or crossfill fallback.
      */
     public function selectCurrentMarksForRoster(
         array $personIDsByClass,
-        $anchorTTDayRowClassID,
+        array $anchorByClass,
         $date,
         $crossFillClasses
     ): array {
@@ -248,13 +260,19 @@ class AttendanceGateway extends Gateway
         $marks = [];
 
         foreach ($personIDsByClass as $gibbonPersonID => $gibbonCourseClassID) {
+            // The student's own class's period, not the room's. Where a room
+            // holds two classes at once, marks for the class the room was
+            // not opened on carry that class's own period row, and matching
+            // them against a single shared anchor found nothing at all.
+            $anchor = $anchorByClass[(int) $gibbonCourseClassID] ?? '';
+
             $candidates = array_values(array_filter(
                 $byStudent[$gibbonPersonID] ?? [],
-                function ($row) use ($gibbonCourseClassID, $anchorTTDayRowClassID, $crossFillClasses) {
+                function ($row) use ($gibbonCourseClassID, $anchor, $crossFillClasses) {
                     if ($row['gibbonCourseClassID'] != $gibbonCourseClassID) {
                         return false;
                     }
-                    if ($row['gibbonTTDayRowClassID'] == $anchorTTDayRowClassID) {
+                    if ($anchor !== '' && $row['gibbonTTDayRowClassID'] == $anchor) {
                         return true;
                     }
                     if ($crossFillClasses === 'Y') {
@@ -294,7 +312,8 @@ class AttendanceGateway extends Gateway
                 // (not just "what does it currently display") needs this -
                 // a crossfilled row displays a real mark without there being
                 // any row at all for this specific period yet.
-                'exact' => $current['gibbonTTDayRowClassID'] == $anchorTTDayRowClassID,
+                'exact' => $anchor !== ''
+                    && $current['gibbonTTDayRowClassID'] == $anchor,
             ];
         }
 
@@ -333,7 +352,8 @@ class AttendanceGateway extends Gateway
     {
         $anchorByClass = [];
         foreach ($classRows as $row) {
-            $anchorByClass[$row['gibbonCourseClassID']] = $row['gibbonTTDayRowClassID'];
+            $anchorByClass[(int) $row['gibbonCourseClassID']]
+                = $row['gibbonTTDayRowClassID'];
         }
 
         $classOfStudent = [];
@@ -353,24 +373,17 @@ class AttendanceGateway extends Gateway
             return ['eligible' => 0, 'marked' => 0];
         }
 
-        $personIDsByClass = [];
-        foreach ($classOfStudent as $gibbonPersonID => $gibbonCourseClassID) {
-            $personIDsByClass[$gibbonCourseClassID][$gibbonPersonID] = $gibbonCourseClassID;
-        }
+        // One query for the whole room: selectCurrentMarksForRoster() takes
+        // the anchor per class, so the classes no longer have to be counted
+        // one at a time.
+        $marks = $this->selectCurrentMarksForRoster(
+            $classOfStudent,
+            $anchorByClass,
+            $date,
+            'N'
+        );
 
-        $marked = 0;
-
-        foreach ($personIDsByClass as $gibbonCourseClassID => $subset) {
-            $marks = $this->selectCurrentMarksForRoster(
-                $subset,
-                $anchorByClass[$gibbonCourseClassID] ?? '',
-                $date,
-                'N'
-            );
-            $marked += count($marks);
-        }
-
-        return ['eligible' => $eligible, 'marked' => $marked];
+        return ['eligible' => $eligible, 'marked' => count($marks)];
     }
 
     /**

@@ -114,14 +114,23 @@ class RegisterMode
             $seatingPayload['roster']
         );
 
-        $slot = $context->getSlot();
-        $anchorTTDayRowClassID = $slot['gibbonTTDayRowClassID'] ?? '';
+        // Every class in this room this period, each with its own period
+        // row. Where two classes meet here at once, a mark belongs to the
+        // student's own class's period - the room has no single anchor that
+        // would find both.
+        $anchorByClass = [];
+
+        foreach ($context->getClasses() as $classRow) {
+            $anchorByClass[(int) $classRow['gibbonCourseClassID']]
+                = $classRow['gibbonTTDayRowClassID'];
+        }
+
         $crossFillClasses = $this->settingGateway
             ->getSettingByScope('Attendance', 'crossFillClasses');
 
         $marks = $this->attendanceGateway->selectCurrentMarksForRoster(
             $personIDsByClass,
-            $anchorTTDayRowClassID,
+            $anchorByClass,
             $context->getDate(),
             $crossFillClasses
         );

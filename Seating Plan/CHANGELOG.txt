@@ -3,6 +3,18 @@ Seating Plan
 Graphical classroom seating plans for Gibbon.
 
 
+v0.15.02
+--------
+Fixed
+  - Where two classes share a room for the same period, the register only
+    loaded the marks of one of them. Students of the other class came back
+    with no mark and a red border, as though their register had never been
+    taken, and the next save would have written it again. Each class in a
+    room has its own period in the timetable, and the register was looking
+    for every mark under a single one of them. The marks themselves were
+    always saved correctly.
+
+
 v0.15.01
 --------
 Fixed
