@@ -353,6 +353,17 @@
         room.select(index);
     }
 
+    function onDoubleClick(index) {
+        var item = items[index];
+
+        if (!item || item.gibbonPersonID === undefined) {
+            return;
+        }
+
+        window.location.href = 'index.php?q=%2Fmodules%2FStudents%2Fstudent_view_details.php'
+            + '&gibbonPersonID=' + encodeURIComponent(item.gibbonPersonID);
+    }
+
     /* ----------------------------------------------------------- the mode */
 
     window.SeatingPlanRoom.register({
@@ -380,6 +391,7 @@
         onDragStart: onDragStart,
         onDrop: onDrop,
         onClick: onClick,
+        onDoubleClick: onDoubleClick,
 
         getSavePayload: function () {
             // In a room with chairs, only a tile exactly on one is a real,

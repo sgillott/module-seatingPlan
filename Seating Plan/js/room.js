@@ -635,6 +635,25 @@ window.SeatingPlanRoom = (function () {
         drag = null;
     }
 
+    function onDoubleClick(event) {
+        if (!mode.onDoubleClick) {
+            return;
+        }
+
+        var box = event.target.closest('.sp-item');
+        if (!box) {
+            return;
+        }
+
+        var index = parseInt(box.dataset.index, 10);
+        if (isNaN(index)) {
+            return;
+        }
+
+        event.preventDefault();
+        mode.onDoubleClick(index);
+    }
+
     function onContextMenu(event) {
         var box = event.target.closest('.sp-item');
         if (!config.canEdit || !box) {
@@ -961,6 +980,7 @@ window.SeatingPlanRoom = (function () {
         roomEl.addEventListener('pointermove', onPointerMove);
         roomEl.addEventListener('pointerup', onPointerUp);
         roomEl.addEventListener('pointercancel', onPointerUp);
+        roomEl.addEventListener('dblclick', onDoubleClick);
 
         if (config.canEdit) {
             wireToolbar();
