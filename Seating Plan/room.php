@@ -73,12 +73,21 @@ if ($context === null) {
 
 // Modes that need students are only offered when there are students to show.
 // A greyed button invites a question nobody can answer, so an unavailable mode
-// is simply absent. Seating and Register also need a real, saved layout:
-// without one there are no chairs to seat anyone in. Register additionally
-// needs core's own Attendance permission - a teacher without it never sees
-// the tab, matching how modules/Planner/planner_view_full.php gates its own
-// attendance UI on the same core action.
-$seatedModesAvailable = $context->hasPeriod() && $context->getLayoutID() !== '';
+// is simply absent.
+//
+// A drawn layout is deliberately NOT part of that test. Every one of these
+// modes works in a bare room: the students are laid out in rows, they can be
+// moved about and saved where they are put, the register can be taken, names
+// drawn, points given and exits logged. A room with no furniture in it is a
+// room with no chairs, so the floor is the plan - see js/seatPlacement.js and
+// SeatingPlanGateway::validateSeats(). The layout itself is started by the
+// first save that needs one.
+//
+// Register additionally needs core's own Attendance permission - a teacher
+// without it never sees the tab, matching how
+// modules/Planner/planner_view_full.php gates its own attendance UI on the
+// same core action.
+$seatedModesAvailable = $context->hasPeriod();
 
 $modes = [
     'furniture' => [
@@ -144,6 +153,9 @@ $backURL = $context->hasPeriod()
 $payload = [
     'mode'         => $mode,
     'layoutID'     => $context->getLayoutID(),
+    // Always sent, not only for the student modes: it is what lets a save
+    // start a layout for a room that has none yet.
+    'gibbonSpaceID' => $context->getSpaceID(),
     'gridCols'     => $context->getGridCols(),
     'gridRows'     => $context->getGridRows(),
     'editVersion'  => (int) ($context->getLayout()['editVersion'] ?? 1),
@@ -187,6 +199,12 @@ $payload = [
             . 'on one of them.'),
         'unseated'     => __('{count} still need a seat.'),
         'allSeated'    => __('Everyone has a seat.'),
+        // Shown for as long as the room has no chairs in it: without chairs
+        // there is nothing to be in or out of, so every position counts and
+        // is saved as it stands.
+        'freeArrange'  => __('No chairs in this room yet - put the students '
+            . 'where they sit, then Save. Draw the furniture whenever you '
+            . 'like.'),
         'notMarked'    => __('{count} not yet marked.'),
         'allMarked'    => __('Everyone has been marked.'),
         'unsavedMarks' => __('{count} unsaved marks - click Save Attendance.'),
@@ -218,7 +236,6 @@ if ($mode === 'seating') {
     $payload['badgeSlots'] = $seatingPayload['badgeSlots'];
     $payload['badgeCatalogue'] = $seatingPayload['badgeCatalogue'];
     $payload['classList'] = $context->getClassList();
-    $payload['gibbonSpaceID'] = $context->getSpaceID();
 } elseif ($mode === 'register') {
     $registerPayload = $container->get(RegisterMode::class)
         ->buildPayload(
@@ -233,7 +250,6 @@ if ($mode === 'seating') {
     $payload['marks'] = $registerPayload['marks'];
     $payload['codes'] = $registerPayload['codes'];
     $payload['classList'] = $context->getClassList();
-    $payload['gibbonSpaceID'] = $context->getSpaceID();
     $payload['date'] = $context->getDate();
     $slot = $context->getSlot();
     $payload['anchorTTDayRowClassID'] = $slot['gibbonTTDayRowClassID'] ?? '';
@@ -252,7 +268,6 @@ if ($mode === 'seating') {
     $payload['seats'] = $rewardsPayload['seats'];
     $payload['rewardCounts'] = $rewardsPayload['rewardCounts'];
     $payload['classList'] = $context->getClassList();
-    $payload['gibbonSpaceID'] = $context->getSpaceID();
     $payload['date'] = $context->getDate();
     // Lets the save endpoint resolve the lesson from the timetable itself,
     // so a point is filed against a real period rather than only a date -
@@ -268,7 +283,6 @@ if ($mode === 'seating') {
     $payload['seats'] = $roomExitPayload['seats'];
     $payload['openExits'] = $roomExitPayload['openExits'];
     $payload['classList'] = $context->getClassList();
-    $payload['gibbonSpaceID'] = $context->getSpaceID();
     $payload['date'] = $context->getDate();
     // Lets the save endpoint resolve the lesson from the timetable itself,
     // so an exit is filed against a real class and period, not just a room
@@ -554,8 +568,27 @@ $available = array_filter(
 $base = $session->get('absoluteURL').'/modules/'.rawurlencode('Seating Plan').'/js/';
 $version = rawurlencode($session->get('version', ''));
 
+// Confetti for the name picker, and only for the name picker: no other mode
+// throws any, and no other mode should pay for the download.
+//
+// This is the module's one external asset. It is pinned to an exact version
+// and checked against its own hash, so the file that runs is the file that
+// was reviewed - a changed file simply does not execute. A school with no
+// route out to the internet, or one that blocks the CDN, gets no confetti
+// and nothing else changes: js/mode.picker.js checks the library is there
+// before using it.
+if ($mode === 'picker') {
+    ?>
+    <script type="text/javascript"
+        src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"
+        integrity="sha384-sPwMflxqfAN+Q5mvlkLmHiX3PORGbZSXHiSGPTXT9VHCD/AB+b+r+vJWsqprv+7k"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <?php
+}
+
 foreach ([
-    'room.js', 'furnitureArt.js', 'furnitureBackdrop.js', 'studentTile.js', 'badgePanel.js',
+    'room.js', 'furnitureArt.js', 'furnitureBackdrop.js', 'studentTile.js',
+    'seatPlacement.js', 'badgePanel.js',
     'mode.furniture.js', 'mode.seating.js', 'mode.register.js', 'mode.picker.js',
     'mode.rewards.js', 'mode.roomexit.js',
 ] as $script) {

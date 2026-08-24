@@ -29,6 +29,7 @@ namespace Gibbon\Module\SeatingPlan\Domain;
 use Gibbon\Domain\QueryableGateway;
 use Gibbon\Domain\Traits\TableAware;
 use Gibbon\Module\SeatingPlan\ClassListNormalizer;
+use Gibbon\Module\SeatingPlan\FurnitureCatalogue;
 
 /**
  * Seating plans and the seats on them.
@@ -295,6 +296,14 @@ class SeatingPlanGateway extends QueryableGateway
         $plans = $this->db()->select($sql, $data)->fetchAll(\PDO::FETCH_COLUMN);
         $totals = ['moved' => 0, 'unseated' => 0, 'plans' => count($plans)];
 
+        // Nothing to snap to. In a room with no chairs the students stand
+        // where they were put, so their positions are not stale - unseating
+        // everyone here would throw away a plan that is still perfectly
+        // good.
+        if (empty($chairs)) {
+            return $totals;
+        }
+
         foreach ($plans as $seatingPlanPlanID) {
             $seats = $this->selectSeatsByPlan($seatingPlanPlanID);
 
@@ -350,32 +359,47 @@ class SeatingPlanGateway extends QueryableGateway
     }
 
     /**
-     * Replaces every seat on a plan in one transaction.
+     * Checks what the client submitted before anything is written.
      *
-     * Only a student on the room's own roster, in an actual chair, is ever
-     * written: dragging someone onto open floor is a session-only gesture, so
-     * the client never includes it here in the first place. This validates
-     * that promise server side too.
+     * A room with chairs in it seats students in chairs: only a student on
+     * the room's own roster, exactly on a chair, is written, and open floor
+     * is the gesture for taking someone out of a seat. A room with no chairs
+     * drawn - a room nobody has furnished yet, which is every room until
+     * somebody does - has no such anchor, so any position inside the room
+     * counts and the floor is the plan. Two students may then share a spot,
+     * which on open floor is merely untidy, whereas two students in one
+     * chair is a contradiction.
      *
-     * @param string $seatingPlanPlanID The plan.
-     * @param array  $seats             Raw seats from the client.
-     * @param array  $validPersonIDs    Everyone currently on the room's roster.
-     * @param array  $chairPositions    Every chair's "x,y" position on the
-     *                                  room's current furniture layout.
+     * Pure, and separate from the write below, so a save can be found bad
+     * before it has created anything - a layout made for a save that then
+     * failed would be left behind empty.
      *
-     * @return int The number of seats written.
+     * @param array $seats          Raw seats from the client.
+     * @param array $validPersonIDs Everyone currently on the room's roster.
+     * @param array $chairPositions Every chair's "x,y" position in the room,
+     *                              empty when none are drawn.
+     * @param int   $gridCols       Room width in cells.
+     * @param int   $gridRows       Room depth in cells.
+     *
+     * @return array Clean seat rows, ready to write.
      *
      * @throws \InvalidArgumentException When a seat fails validation.
      */
-    public function replaceSeatsForPlan(
-        $seatingPlanPlanID,
+    public static function validateSeats(
         array $seats,
         array $validPersonIDs,
-        array $chairPositions
-    ): int {
+        array $chairPositions,
+        int $gridCols,
+        int $gridRows
+    ): array {
         $clean = [];
         $seenPerson = [];
         $seenChair = [];
+        $freePlacement = empty($chairPositions);
+        // A student tile is one whole cell, so the last position it can start
+        // at and still be inside the room is one cell short of the far wall.
+        $limitX = ($gridCols - 1) * FurnitureCatalogue::SUBDIVISIONS;
+        $limitY = ($gridRows - 1) * FurnitureCatalogue::SUBDIVISIONS;
         // gibbonPersonID reaches here as a zerofilled string from a gateway
         // select, or as a plain integer from a test or another caller. Both
         // name the same person, so compare numerically rather than trusting
@@ -395,16 +419,29 @@ class SeatingPlanGateway extends QueryableGateway
                 ));
             }
 
-            if (!in_array($chairKey, $chairPositions, true)) {
+            if ($freePlacement) {
+                if ($posX < 0 || $posY < 0 || $posX > $limitX || $posY > $limitY) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'Seat %d is outside this room.',
+                        $index + 1
+                    ));
+                }
+            } elseif (!in_array($chairKey, $chairPositions, true)) {
                 throw new \InvalidArgumentException(sprintf(
                     'Seat %d is not an actual chair in this room.',
                     $index + 1
                 ));
             }
 
-            if (isset($seenPerson[$gibbonPersonID]) || isset($seenChair[$chairKey])) {
+            if (isset($seenPerson[$gibbonPersonID])) {
                 throw new \InvalidArgumentException(
-                    'The same student or chair was submitted twice.'
+                    'The same student was submitted twice.'
+                );
+            }
+
+            if (!$freePlacement && isset($seenChair[$chairKey])) {
+                throw new \InvalidArgumentException(
+                    'Two students were put in the same chair.'
                 );
             }
 
@@ -418,6 +455,21 @@ class SeatingPlanGateway extends QueryableGateway
             ];
         }
 
+        return $clean;
+    }
+
+    /**
+     * Replaces every seat on a plan in one transaction.
+     *
+     * @param string $seatingPlanPlanID The plan.
+     * @param array  $clean             Seats from validateSeats(), which is
+     *                                  where everything about them is
+     *                                  checked - this only writes.
+     *
+     * @return int The number of seats written.
+     */
+    public function replaceSeatsForPlan($seatingPlanPlanID, array $clean): int
+    {
         $this->db()->beginTransaction();
 
         try {

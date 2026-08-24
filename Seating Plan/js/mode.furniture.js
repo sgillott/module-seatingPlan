@@ -244,6 +244,9 @@
         getSavePayload: function () {
             return {
                 seatingPlanRoomLayoutID: config.layoutID,
+                // Which room this is, so a first save in a room nobody has
+                // drawn yet can start its layout.
+                gibbonSpaceID: config.gibbonSpaceID,
                 items: JSON.stringify(items.map(function (item) {
                     return {
                         type: item.type,

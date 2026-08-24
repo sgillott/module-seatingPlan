@@ -8,6 +8,12 @@
  * choice; dropped anywhere else on open floor it just stays there for the
  * session - only a real chair assignment is ever saved, so this doubles as
  * the way to unseat someone.
+ *
+ * None of that applies to a room with no chairs in it, which is every room
+ * until somebody draws the furniture. With nothing to be in or out of, the
+ * floor is the plan: a tile stays wherever it is put and every position is
+ * saved. That is what makes the seating plan usable on the first day, before
+ * anyone has drawn the room.
  */
 (function () {
     'use strict';
@@ -46,17 +52,56 @@
     }
 
     /**
-     * The chairs a tile's current rect overlaps, by however much.
+     * Whether this room seats by chair or by open floor.
      */
-    function overlappingChairs(item) {
+    function freePlacement() {
+        return chairs.length === 0;
+    }
+
+    /**
+     * The chair a dropped tile is aiming at: the one it covers most of.
+     *
+     * Chairs in a real room stand right next to each other, so a tile a
+     * tenth or two off centre laps over its neighbour as well. Counting any
+     * overlap at all as a candidate made that read as "between two chairs"
+     * and sprang the student back to the floor, which meant only a drop
+     * landing exactly on the chair ever seated anybody.
+     *
+     * Most of the tile decides it instead. Only a dead heat - the tile
+     * covering two chairs by precisely the same amount, which is a drop
+     * genuinely in the gap between them - has no answer.
+     *
+     * @return object|null null on open floor, otherwise the chair's "x,y"
+     *                     key and whether a second chair tied with it.
+     */
+    function targetChair(item) {
         var rect = room.rectOf(item);
+        var best = null;
+        var tied = false;
 
-        return chairs.filter(function (key) {
+        chairs.forEach(function (key) {
             var parts = key.split(',');
-            var chairRect = { x: parseInt(parts[0], 10), y: parseInt(parts[1], 10), w: STEP, h: STEP };
+            var chairRect = {
+                x: parseInt(parts[0], 10),
+                y: parseInt(parts[1], 10),
+                w: STEP,
+                h: STEP
+            };
+            var area = room.overlapArea(rect, chairRect);
 
-            return room.overlapArea(rect, chairRect) > 0;
+            if (area <= 0) {
+                return;
+            }
+
+            if (best === null || area > best.area) {
+                best = { key: key, area: area };
+                tied = false;
+            } else if (area === best.area) {
+                tied = true;
+            }
         });
+
+        return best === null ? null : { key: best.key, tied: tied };
     }
 
     /**
@@ -82,8 +127,12 @@
             config,
             STEP,
             document.getElementById('spRoom'),
-            function (item) {
-                if (item.type === 'chair') {
+            function (item, definition) {
+                // The catalogue decides what a student can sit on, here as
+                // well as in seating_saveAjax.php and the re-snap after a
+                // layout update, so the three cannot drift apart on the
+                // answer.
+                if (definition.seat) {
                     chairs.push(chairKey(item.posX, item.posY));
                 }
             }
@@ -100,26 +149,19 @@
 
         buildBackdrop();
 
-        var seatMap = {};
-        (config.seats || []).forEach(function (seat) {
-            var x = parseInt(seat.posX, 10);
-            var y = parseInt(seat.posY, 10);
-
-            if (isChair(x, y)) {
-                seatMap[seat.gibbonPersonID] = { posX: x, posY: y };
-            }
+        var placement = window.SeatingPlanSeatPlacement.resolve({
+            roster: config.roster,
+            seats: config.seats,
+            chairs: chairs,
+            gridCols: config.gridCols,
+            gridRows: config.gridRows,
+            step: STEP
         });
 
         items = [];
-        var unseated = 0;
 
         (config.roster || []).forEach(function (student) {
-            var saved = seatMap[student.gibbonPersonID];
-            var spot = saved || room.firstFreeSpot(STEP, STEP);
-
-            if (!saved) {
-                unseated++;
-            }
+            var spot = placement.positions[student.gibbonPersonID];
 
             items.push({
                 type: 'student',
@@ -135,9 +177,13 @@
             });
         });
 
-        if (unseated > 0) {
+        if (freePlacement()) {
+            // A standing note about how this room works, not a warning:
+            // nobody is missing a seat in a room that has none.
+            room.setStatus(room.text('freeArrange'));
+        } else if (placement.placed > 0) {
             room.setStatus(
-                room.text('unseated').replace('{count}', unseated),
+                room.text('unseated').replace('{count}', placement.placed),
                 'warn'
             );
         } else if (items.length > 0) {
@@ -252,29 +298,35 @@
     }
 
     function onDrop(indices) {
+        if (freePlacement()) {
+            // Nothing to snap to and nothing to swap with: wherever the tile
+            // was let go is the answer, and the shell has already marked the
+            // room dirty so it will be saved.
+            return;
+        }
+
+        var message = '';
+
         indices.forEach(function (index) {
             var item = items[index];
             var origin = origins[index] || { posX: item.posX, posY: item.posY };
-            var overlapping = overlappingChairs(item);
+            var target = targetChair(item);
 
-            if (overlapping.length === 0) {
+            if (target === null) {
                 // Open floor: left exactly where it was dropped, for this
                 // session only.
                 return;
             }
 
-            if (overlapping.length > 1) {
+            if (target.tied) {
                 item.posX = origin.posX;
                 item.posY = origin.posY;
-                room.setStatus(
-                    room.text('seatAmbiguous').replace('{name}', item.name),
-                    'warn'
-                );
+                message = room.text('seatAmbiguous').replace('{name}', item.name);
                 room.refreshItem(index);
                 return;
             }
 
-            var parts = overlapping[0].split(',');
+            var parts = target.key.split(',');
             var chairX = parseInt(parts[0], 10);
             var chairY = parseInt(parts[1], 10);
             var occupant = occupantAt(chairX, chairY, index);
@@ -289,6 +341,11 @@
             item.posY = chairY;
             room.refreshItem(index);
         });
+
+        // Handed back rather than set here: the shell marks the room dirty
+        // straight after this returns, and that would overwrite anything
+        // written to the status bar now.
+        return message;
     }
 
     function onClick(index) {
@@ -325,12 +382,13 @@
         onClick: onClick,
 
         getSavePayload: function () {
-            // Only a tile that is exactly on a chair is a real, savable seat.
-            // Everything on open floor is a session-only convenience and is
-            // simply left out.
+            // In a room with chairs, only a tile exactly on one is a real,
+            // savable seat: everything on open floor is a session-only
+            // convenience and is simply left out. In a room with no chairs
+            // the floor is all there is, so every position is saved.
             var seats = items
                 .filter(function (item) {
-                    return isChair(item.posX, item.posY);
+                    return freePlacement() || isChair(item.posX, item.posY);
                 })
                 .map(function (item) {
                     return {

@@ -3,6 +3,76 @@ Seating Plan
 Graphical classroom seating plans for Gibbon.
 
 
+v0.15.01
+--------
+Fixed
+  - Confetti appeared in the top left corner of the room instead of behind
+    the chosen student. The canvas it is drawn on was only 300 by 150 and
+    sat in the corner, because a canvas keeps its own built-in size unless
+    the stylesheet asks for a different one outright. It now covers the
+    room, and the burst is measured against the canvas rather than against
+    the room around it.
+
+
+v0.15.00
+--------
+Added
+  - A bar across the top of the room fills from left to right while the name
+    picker slows down, green through amber to red, so it is clear something
+    is happening rather than the room having stopped.
+  - Confetti bursts from behind the chosen student. It comes from a library
+    loaded over the internet, so a school without that will not see it; the
+    picker works the same either way.
+
+Fixed
+  - The chosen student in the picker could be covered by a neighbouring
+    student, who showed faded on top of them. The chosen student is now
+    drawn above everything else in the room.
+
+Note
+  - The confetti library is the module's only external file. It is pinned to
+    one version and checked against a hash of it, so a changed file will not
+    run. Nothing else in the module needs the internet.
+
+
+v0.14.01
+--------
+Fixed
+  - Students would not sit down unless you dropped them exactly on the
+    chair. A tenth of a square out and they sprang back to where they came
+    from. Chairs stand side by side in a real room, so a tile even slightly
+    off centre lapped over the next chair along and the drop was treated as
+    landing between the two. A student now sits on whichever chair the tile
+    covers most of, and only a drop squarely in the gap between two chairs
+    goes back.
+  - When a drop did go back, the message saying why was wiped off the status
+    bar straight away and you were left with "Unsaved changes" instead.
+
+
+v0.14.00
+--------
+Added
+  - You no longer have to draw a room before you can use it. Open a lesson
+    from My Lessons and Seating, Register, Picker, Rewards and Room Exits
+    are all there straight away, even if nobody has ever drawn that room.
+  - In a room with no chairs, put the students wherever they sit and press
+    Save. The positions are kept, so you can build a seating plan first and
+    draw the furniture later, or never draw it at all.
+  - When you do draw the chairs afterwards, everyone moves onto the chair
+    nearest to where they were standing, so the arrangement you made is not
+    thrown away.
+  - The layout itself is created by that first save, owned by you and shared
+    with your colleagues, the same as one you add by hand.
+
+Fixed
+  - Rewards, Room Exits and the Picker used to leave out anybody the seating
+    plan did not place, so a student who joined the class after the plan was
+    saved could not be given a point or signed out of the room. Everybody in
+    the class is now shown; anyone without a seat is laid out in rows.
+  - Saving furniture in a room that had no layout used to fail with "the
+    specified record cannot be found", which left the whole screen useless.
+
+
 v0.13.00
 --------
 Added

@@ -60,33 +60,37 @@
 
         buildBackdrop(STEP);
 
-        items = (config.roster || [])
-            .map(function (student) {
-                var seat = (config.seats || []).filter(function (s) {
-                    return s.gibbonPersonID === student.gibbonPersonID;
-                })[0];
+        // Students come and go whether or not the room has been drawn or the
+        // class arranged: anyone the seating plan does not place is laid out
+        // in rows, so nobody is off screen and therefore impossible to sign
+        // out.
+        var placement = window.SeatingPlanSeatPlacement.resolve({
+            roster: config.roster,
+            seats: config.seats,
+            chairs: null,
+            gridCols: config.gridCols,
+            gridRows: config.gridRows,
+            step: STEP
+        });
 
-                if (!seat) {
-                    return null;
-                }
+        items = (config.roster || []).map(function (student) {
+            var spot = placement.positions[student.gibbonPersonID];
+            var open = openExits[student.gibbonPersonID];
 
-                var open = openExits[student.gibbonPersonID];
-
-                return {
-                    type: 'student',
-                    gibbonPersonID: student.gibbonPersonID,
-                    name: student.name,
-                    photo: student.photo,
-                    posX: parseInt(seat.posX, 10),
-                    posY: parseInt(seat.posY, 10),
-                    rotation: 0,
-                    flipped: false,
-                    sizeX: STEP,
-                    sizeY: STEP,
-                    timeOut: open ? open.timeOut : null
-                };
-            })
-            .filter(function (item) { return item !== null; });
+            return {
+                type: 'student',
+                gibbonPersonID: student.gibbonPersonID,
+                name: student.name,
+                photo: student.photo,
+                posX: spot.posX,
+                posY: spot.posY,
+                rotation: 0,
+                flipped: false,
+                sizeX: STEP,
+                sizeY: STEP,
+                timeOut: open ? open.timeOut : null
+            };
+        });
 
         // room.js builds the actual tile elements *after* load() returns
         // (inside its own start()), so the initial paint of anyone already

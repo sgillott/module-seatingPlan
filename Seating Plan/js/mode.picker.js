@@ -55,6 +55,44 @@
     var flickerTimer = null;
     var FLICKER_MS = 200;
 
+    // Past about half a second between hops the suspense has run its course.
+    var SLOWEST_MS = 520;
+
+    // The bar across the top of the room, and the canvas the confetti is
+    // thrown onto. Both live inside the picker's own layer.
+    var progressEl = null;
+    var confettiEl = null;
+    var throwConfetti = null;
+
+    /**
+     * How long the highlight takes to slow to a stop, hop by hop.
+     *
+     * Each wait is a little longer than the last until the next one would
+     * be slower than SLOWEST_MS, at which point the choice is held. Worked
+     * out up front rather than as it goes, so the progress bar can be told
+     * exactly how long it has to fill - the bar and the flicker cannot
+     * drift apart if they are reading from the same list.
+     *
+     * @return array The wait before each hop, in milliseconds.
+     */
+    function settleDelays() {
+        var delays = [FLICKER_MS];
+        var next = Math.round(FLICKER_MS * 1.35);
+
+        while (next < SLOWEST_MS) {
+            delays.push(next);
+            next = Math.round(next * 1.35);
+        }
+
+        return delays;
+    }
+
+    function totalOf(delays) {
+        return delays.reduce(function (sum, delay) {
+            return sum + delay;
+        }, 0);
+    }
+
     /* -------------------------------------------------------------- setup */
 
     function buildBackdrop() {
@@ -66,35 +104,40 @@
     }
 
     /**
-     * A static tile for every seated student, in its own layer.
+     * A static tile for every student in the room, in its own layer.
      *
      * The layer is not itself .sp-item-classed, so room.js's render()
      * (which clears only direct .sp-item children of #spRoom) leaves
      * everything here alone.
+     *
+     * Anyone the seating plan does not place - a room nobody has arranged,
+     * or a student who joined since - is laid out in rows instead, because a
+     * name picker that quietly leaves some of the class out is worse than no
+     * picker at all.
      */
     function buildTiles() {
         var layer = document.createElement('div');
         layer.className = 'sp-picker-layer';
 
-        var seats = {};
-        (config.seats || []).forEach(function (seat) {
-            seats[seat.gibbonPersonID] = seat;
+        var placement = window.SeatingPlanSeatPlacement.resolve({
+            roster: config.roster,
+            seats: config.seats,
+            chairs: null,
+            gridCols: config.gridCols,
+            gridRows: config.gridRows,
+            step: STEP
         });
 
         tiles = [];
 
         (config.roster || []).forEach(function (student) {
-            var seat = seats[student.gibbonPersonID];
-
-            if (!seat) {
-                return;
-            }
+            var spot = placement.positions[student.gibbonPersonID];
 
             var box = document.createElement('div');
             box.className = 'sp-item sp-picker-tile';
             box.dataset.layer = 'seat';
-            box.style.setProperty('--c', parseInt(seat.posX, 10));
-            box.style.setProperty('--r', parseInt(seat.posY, 10));
+            box.style.setProperty('--c', spot.posX);
+            box.style.setProperty('--r', spot.posY);
             box.style.setProperty('--w', STEP);
             box.style.setProperty('--h', STEP);
             box.appendChild(window.SeatingPlanStudentTile.build(student));
@@ -107,7 +150,116 @@
             });
         });
 
+        confettiEl = document.createElement('canvas');
+        confettiEl.className = 'sp-picker-confetti';
+        layer.appendChild(confettiEl);
+
+        progressEl = document.createElement('div');
+        progressEl.className = 'sp-picker-progress';
+        layer.appendChild(progressEl);
+
         roomEl.appendChild(layer);
+    }
+
+    /* ------------------------------------------------------- the waiting */
+
+    /**
+     * Starts the bar filling across the top of the room, green to red, over
+     * exactly as long as the highlight will take to stop.
+     *
+     * The fill is a new element every time: the animation plays on whatever
+     * element carries it, and re-running one already on screen means
+     * fighting the browser to restart it.
+     *
+     * @param int duration How long the slow-down will take, in ms.
+     *
+     * @return void
+     */
+    function startProgress(duration) {
+        if (!progressEl) {
+            return;
+        }
+
+        progressEl.innerHTML = '';
+
+        var fill = document.createElement('div');
+        fill.className = 'sp-picker-progress-fill';
+        fill.style.setProperty('--sp-picker-ms', duration + 'ms');
+        progressEl.appendChild(fill);
+    }
+
+    /**
+     * Clears the bar. Called when the choice is made and when the highlight
+     * goes back to roaming, so the bar is only ever on screen during the
+     * wait it describes.
+     */
+    function clearProgress() {
+        if (progressEl) {
+            progressEl.innerHTML = '';
+        }
+    }
+
+    /* ------------------------------------------------------- the confetti */
+
+    /**
+     * Throws confetti from behind the chosen student.
+     *
+     * canvas-confetti is loaded from a CDN by room.php, so it may simply
+     * not be there - an install with no route out to the internet, or a
+     * blocked request. Nothing here is load-bearing, so its absence is not
+     * worth a word to the teacher: the pick still works, it is just quieter.
+     *
+     * @param object tile The chosen student's tile.
+     *
+     * @return void
+     */
+    function celebrate(tile) {
+        if (typeof window.confetti !== 'function' || !confettiEl) {
+            return;
+        }
+
+        if (
+            window.matchMedia
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return;
+        }
+
+        if (throwConfetti === null) {
+            // No worker: it would hand the canvas to an OffscreenCanvas and
+            // that is a lot of moving parts for ninety paper squares.
+            throwConfetti = window.confetti.create(confettiEl, {
+                resize: true
+            });
+        }
+
+        // Measured against the canvas, not the room. The library multiplies
+        // the origin by the canvas's own width and height, so the canvas is
+        // the only box the fraction can be a fraction of - even though the
+        // stylesheet sizes it to cover the room exactly.
+        var canvas = confettiEl.getBoundingClientRect();
+        var seat = tile.element.getBoundingClientRect();
+
+        if (!canvas.width || !canvas.height) {
+            return;
+        }
+
+        // The middle of the chosen tile, so the confetti appears to come out
+        // from behind them rather than from a corner of the room.
+        var origin = {
+            x: (seat.left + seat.width / 2 - canvas.left) / canvas.width,
+            y: (seat.top + seat.height / 2 - canvas.top) / canvas.height
+        };
+
+        throwConfetti({
+            particleCount: 90,
+            spread: 100,
+            startVelocity: 32,
+            gravity: 0.9,
+            scalar: 0.9,
+            ticks: 140,
+            origin: origin
+        });
     }
 
     /**
@@ -287,6 +439,7 @@
         }
 
         state = 'cycling';
+        clearProgress();
         room.setStatus(room.text('pickerTapToChoose'));
 
         // While nothing has been chosen the highlight roams the whole room,
@@ -342,17 +495,21 @@
             );
         });
 
-        var delay = FLICKER_MS;
+        // Each hop is a little slower than the last, like a wheel losing
+        // momentum. The bar across the top of the room fills over exactly
+        // the same stretch of time, so the wait reads as a wait rather than
+        // as the room having stopped responding.
+        var delays = settleDelays();
+        var step = 0;
+
+        startProgress(totalOf(delays));
 
         function tick() {
             highlight(randomFrom(pool));
+            step++;
 
-            // Each step is a little slower than the last. Past about half a
-            // second between hops the suspense has run its course.
-            delay = Math.round(delay * 1.35);
-
-            if (delay < 520) {
-                flickerTimer = window.setTimeout(tick, delay);
+            if (step < delays.length) {
+                flickerTimer = window.setTimeout(tick, delays[step]);
 
                 return;
             }
@@ -360,7 +517,7 @@
             settle(winner);
         }
 
-        flickerTimer = window.setTimeout(tick, delay);
+        flickerTimer = window.setTimeout(tick, delays[0]);
     }
 
     /**
@@ -368,6 +525,7 @@
      */
     function settle(index) {
         stopCycling();
+        clearProgress();
         state = 'showing';
 
         tiles.forEach(function (tile, at) {
@@ -376,6 +534,7 @@
             tile.element.classList.toggle('sp-picker-spotlight', at === index);
         });
 
+        celebrate(tiles[index]);
         room.setStatus(room.text('pickerTapAgain'));
     }
 

@@ -49,10 +49,6 @@
         return x + ',' + y;
     }
 
-    function isChair(x, y) {
-        return chairs.indexOf(chairKey(x, y)) >= 0;
-    }
-
     /* -------------------------------------------------------- the backdrop */
 
     /**
@@ -65,8 +61,11 @@
             config,
             STEP,
             document.getElementById('spRoom'),
-            function (item) {
-                if (item.type === 'chair') {
+            function (item, definition) {
+                // The catalogue is what decides a student can sit on this,
+                // matching seating mode and the save endpoint rather than
+                // naming one type here.
+                if (definition.seat) {
                     chairs.push(chairKey(item.posX, item.posY));
                 }
             }
@@ -83,21 +82,22 @@
 
         buildBackdrop();
 
-        var seatMap = {};
-        (config.seats || []).forEach(function (seat) {
-            var x = parseInt(seat.posX, 10);
-            var y = parseInt(seat.posY, 10);
-
-            if (isChair(x, y)) {
-                seatMap[seat.gibbonPersonID] = { posX: x, posY: y };
-            }
+        // The register is taken whether or not the room has been drawn or
+        // arranged: anyone the seating plan does not place is laid out in
+        // rows, so a bare room still shows the whole class to mark.
+        var placement = window.SeatingPlanSeatPlacement.resolve({
+            roster: config.roster,
+            seats: config.seats,
+            chairs: chairs,
+            gridCols: config.gridCols,
+            gridRows: config.gridRows,
+            step: STEP
         });
 
         items = [];
 
         (config.roster || []).forEach(function (student) {
-            var saved = seatMap[student.gibbonPersonID];
-            var spot = saved || room.firstFreeSpot(STEP, STEP);
+            var spot = placement.positions[student.gibbonPersonID];
             var mark = (config.marks || {})[student.gibbonPersonID] || null;
 
             items.push({

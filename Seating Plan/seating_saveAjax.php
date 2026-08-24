@@ -25,6 +25,7 @@
  */
 
 use Gibbon\Session\TokenHandler;
+use Gibbon\Domain\School\FacilityGateway;
 use Gibbon\Module\SeatingPlan\ClassListNormalizer;
 use Gibbon\Module\SeatingPlan\FurnitureCatalogue;
 use Gibbon\Module\SeatingPlan\Domain\FurnitureGateway;
@@ -40,16 +41,30 @@ header('Content-Type: application/json; charset=utf-8');
 /**
  * Sends a JSON response and stops.
  *
- * @param bool   $ok      Whether the save succeeded.
- * @param string $message Text for the user.
- * @param int    $status  HTTP status code.
+ * @param bool   $ok       Whether the save succeeded.
+ * @param string $message  Text for the user.
+ * @param int    $status   HTTP status code.
+ * @param string $forkedTo When this save had to start a layout for the room,
+ *                         because nobody had drawn one, this is its ID. The
+ *                         client picks it up so a second save arranges the
+ *                         same layout instead of starting another.
  *
  * @return void
  */
-function seatingPlanRespond(bool $ok, string $message, int $status = 200)
-{
+function seatingPlanRespond(
+    bool $ok,
+    string $message,
+    int $status = 200,
+    string $forkedTo = ''
+) {
     http_response_code($status);
-    echo json_encode(['ok' => $ok, 'message' => $message]);
+    $body = ['ok' => $ok, 'message' => $message];
+
+    if ($forkedTo !== '') {
+        $body['forkedTo'] = $forkedTo;
+    }
+
+    echo json_encode($body);
     exit;
 }
 
@@ -71,7 +86,10 @@ $gibbonSpaceID = $_POST['gibbonSpaceID'] ?? '';
 $classListRaw = $_POST['classList'] ?? '';
 $seatsRaw = $_POST['seats'] ?? '';
 
-if ($seatingPlanRoomLayoutID === '' || $gibbonSpaceID === '') {
+// The layout may legitimately be missing: a room nobody has drawn yet still
+// has students in it, and they can be arranged in the bare room. The room
+// itself, however, always has to be named.
+if ($gibbonSpaceID === '') {
     seatingPlanRespond(false, __('Your request failed due to malformed data.'), 400);
 }
 
@@ -84,14 +102,22 @@ try {
 $courseClassIDs = explode(',', $classList);
 
 $layoutGateway = $container->get(RoomLayoutGateway::class);
-$layout = $layoutGateway->getLayoutByID($seatingPlanRoomLayoutID);
+$layout = [];
 
-if (empty($layout) || $layout['gibbonSpaceID'] != $gibbonSpaceID) {
+if ($seatingPlanRoomLayoutID !== '') {
+    $layout = $layoutGateway->getLayoutByID($seatingPlanRoomLayoutID);
+
+    if (empty($layout) || $layout['gibbonSpaceID'] != $gibbonSpaceID) {
+        seatingPlanRespond(false, __('The specified record cannot be found.'), 404);
+    }
+} elseif (!$container->get(FacilityGateway::class)->exists($gibbonSpaceID)) {
     seatingPlanRespond(false, __('The specified record cannot be found.'), 404);
 }
 
 // Any teacher of one of the classes may arrange the room, not only the
-// layout's owner: co-teachers share one seating plan for the group.
+// layout's owner: co-teachers share one seating plan for the group. It is
+// also what entitles the first of them to save to start the room's layout,
+// below.
 $slotGateway = $container->get(TimetableSlotGateway::class);
 
 if (
@@ -110,6 +136,15 @@ if (count($seats) > 60) {
     seatingPlanRespond(false, __('That is more students than a room can seat.'), 400);
 }
 
+// The room's size travels with the save, the same way the designer sends it.
+// For a room with no layout yet there is nothing else to take it from.
+$gridCols = (int) ($_POST['gridCols'] ?? ($layout['gridCols'] ?? 0));
+$gridRows = (int) ($_POST['gridRows'] ?? ($layout['gridRows'] ?? 0));
+
+if ($gridCols < 10 || $gridCols > 40 || $gridRows < 10 || $gridRows > 40) {
+    seatingPlanRespond(false, __('A room must be between 10 and 40 cells each way.'), 400);
+}
+
 $rosterGateway = $container->get(StudentRosterGateway::class);
 $roster = $rosterGateway->selectRoster($courseClassIDs, [], null);
 $validPersonIDs = array_column($roster, 'gibbonPersonID');
@@ -117,12 +152,45 @@ $validPersonIDs = array_column($roster, 'gibbonPersonID');
 $furnitureGateway = $container->get(FurnitureGateway::class);
 $chairPositions = [];
 
-foreach ($furnitureGateway->selectFurnitureByLayout($seatingPlanRoomLayoutID) as $item) {
-    // The catalogue decides what a student can sit on, so this and the
-    // re-snap after a layout update cannot drift apart on the answer.
-    if (FurnitureCatalogue::isSeat($item['type'])) {
-        $chairPositions[] = $item['posX'].','.$item['posY'];
+if ($seatingPlanRoomLayoutID !== '') {
+    foreach ($furnitureGateway->selectFurnitureByLayout($seatingPlanRoomLayoutID) as $item) {
+        // The catalogue decides what a student can sit on, so this and the
+        // re-snap after a layout update cannot drift apart on the answer.
+        if (FurnitureCatalogue::isSeat($item['type'])) {
+            $chairPositions[] = $item['posX'].','.$item['posY'];
+        }
     }
+}
+
+// Checked before anything is created: a layout started for a save that then
+// turns out to be bad would be left behind empty.
+try {
+    $clean = SeatingPlanGateway::validateSeats(
+        $seats,
+        $validPersonIDs,
+        $chairPositions,
+        $gridCols,
+        $gridRows
+    );
+} catch (\InvalidArgumentException $e) {
+    seatingPlanRespond(false, $e->getMessage(), 400);
+}
+
+$forkedTo = '';
+
+if ($seatingPlanRoomLayoutID === '') {
+    $seatingPlanRoomLayoutID = $layoutGateway->createForSpace(
+        $gibbonSpaceID,
+        $session->get('gibbonPersonID'),
+        $gridCols,
+        $gridRows
+    );
+
+    if ($seatingPlanRoomLayoutID === '') {
+        seatingPlanRespond(false, __('Your request failed due to a database error.'), 500);
+    }
+
+    $forkedTo = $seatingPlanRoomLayoutID;
 }
 
 $planGateway = $container->get(SeatingPlanGateway::class);
@@ -139,18 +207,18 @@ if ($seatingPlanPlanID === '') {
 }
 
 try {
-    $planGateway->replaceSeatsForPlan(
-        $seatingPlanPlanID,
-        $seats,
-        $validPersonIDs,
-        $chairPositions
-    );
-} catch (\InvalidArgumentException $e) {
-    seatingPlanRespond(false, $e->getMessage(), 400);
+    $planGateway->replaceSeatsForPlan($seatingPlanPlanID, $clean);
 } catch (\Throwable $e) {
     seatingPlanRespond(false, __('Your request failed due to a database error.'), 500);
 }
 
 $planGateway->update($seatingPlanPlanID, ['timestampModified' => date('Y-m-d H:i:s')]);
 
-seatingPlanRespond(true, __('Your request was completed successfully.'));
+seatingPlanRespond(
+    true,
+    $forkedTo === ''
+        ? __('Your request was completed successfully.')
+        : __('Saved. This room now has a layout of its own, ready for furniture.'),
+    200,
+    $forkedTo
+);

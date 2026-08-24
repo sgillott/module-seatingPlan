@@ -136,6 +136,47 @@ class RoomLayoutGateway extends QueryableGateway
 
         return $this->db()->selectOne($sql, $data) ?: [];
     }
+
+    /**
+     * Starts a layout for a room that has none yet.
+     *
+     * A room reached from a timetabled period does not need a layout drawn
+     * before anything else can be done in it: the students can be moved
+     * about, the register taken and points given in a bare room. The layout
+     * only has to exist at the moment something about the room itself is
+     * saved, so it is made here, on that first save, rather than by anyone
+     * having to draw one first.
+     *
+     * @param string $gibbonSpaceID       The room.
+     * @param string $gibbonPersonIDOwner Whoever saved first, who owns it.
+     * @param int    $gridCols            Room width in cells.
+     * @param int    $gridRows            Room depth in cells.
+     *
+     * @return string The new layout's ID, or an empty string on failure.
+     */
+    public function createForSpace(
+        $gibbonSpaceID,
+        $gibbonPersonIDOwner,
+        int $gridCols,
+        int $gridRows
+    ): string {
+        $seatingPlanRoomLayoutID = $this->insert(
+            [
+                'gibbonSpaceID'       => $gibbonSpaceID,
+                'name'                => __('Room Layout'),
+                'gridCols'            => $gridCols,
+                'gridRows'            => $gridRows,
+                'gibbonPersonIDOwner' => $gibbonPersonIDOwner,
+                // Shared, like the one the Add form offers by default: a room
+                // nobody had drawn is a room the whole staff room can use.
+                'shared'              => 'Y',
+                'timestampModified'   => date('Y-m-d H:i:s'),
+            ]
+        );
+
+        return (string) ($seatingPlanRoomLayoutID ?: '');
+    }
+
     /**
      * Updates an owner layout only when the browser still has its version.
      */

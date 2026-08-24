@@ -608,10 +608,17 @@ window.SeatingPlanRoom = (function () {
         }
 
         if (drag.moved) {
+            var dropped = '';
+
             if (drag.mode === 'move' && mode.onDrop) {
-                mode.onDrop(drag.moving);
+                dropped = mode.onDrop(drag.moving);
             }
-            markDirty();
+
+            // A mode may hand back something to say about the drop - why a
+            // tile went back where it came from, say. It has to travel
+            // through markDirty(), which writes to the status bar itself
+            // and would otherwise wipe a message set inside onDrop().
+            markDirty(dropped || undefined);
         } else if (drag.mode === 'move' && !drag.additive) {
             if (drag.withinGroup) {
                 // A plain click inside a group means "just this one", not

@@ -90,34 +90,37 @@
 
         var rewardCounts = config.rewardCounts || {};
 
-        items = (config.roster || [])
-            .map(function (student) {
-                var seat = (config.seats || []).filter(function (s) {
-                    return s.gibbonPersonID === student.gibbonPersonID;
-                })[0];
+        // Points are given whether or not the room has been drawn or the
+        // class arranged: anyone the seating plan does not place is laid out
+        // in rows, so nobody is off screen and therefore out of reach.
+        var placement = window.SeatingPlanSeatPlacement.resolve({
+            roster: config.roster,
+            seats: config.seats,
+            chairs: null,
+            gridCols: config.gridCols,
+            gridRows: config.gridRows,
+            step: STEP
+        });
 
-                if (!seat) {
-                    return null;
-                }
+        items = (config.roster || []).map(function (student) {
+            var spot = placement.positions[student.gibbonPersonID];
+            var counts = rewardCounts[student.gibbonPersonID] || {};
 
-                var counts = rewardCounts[student.gibbonPersonID] || {};
-
-                return {
-                    type: 'student',
-                    gibbonPersonID: student.gibbonPersonID,
-                    name: student.name,
-                    photo: student.photo,
-                    posX: parseInt(seat.posX, 10),
-                    posY: parseInt(seat.posY, 10),
-                    rotation: 0,
-                    flipped: false,
-                    sizeX: STEP,
-                    sizeY: STEP,
-                    rewardCount: counts.Positive || 0,
-                    sanctionCount: counts.Negative || 0
-                };
-            })
-            .filter(function (item) { return item !== null; });
+            return {
+                type: 'student',
+                gibbonPersonID: student.gibbonPersonID,
+                name: student.name,
+                photo: student.photo,
+                posX: spot.posX,
+                posY: spot.posY,
+                rotation: 0,
+                flipped: false,
+                sizeX: STEP,
+                sizeY: STEP,
+                rewardCount: counts.Positive || 0,
+                sanctionCount: counts.Negative || 0
+            };
+        });
 
         wireArmButtons();
     }
