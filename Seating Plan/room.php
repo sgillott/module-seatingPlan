@@ -236,6 +236,20 @@ if ($mode === 'seating') {
     $payload['badgeSlots'] = $seatingPayload['badgeSlots'];
     $payload['badgeCatalogue'] = $seatingPayload['badgeCatalogue'];
     $payload['classList'] = $context->getClassList();
+
+    // Double-clicking a student opens their profile. Empty for a viewer
+    // whose role cannot reach that page, so the gesture does nothing at all
+    // rather than taking them to Gibbon's own access-denied screen. The
+    // student's own ID is added by the browser, which is why this ends on
+    // the parameter name.
+    $payload['studentURL'] = isActionAccessible(
+        $guid,
+        $connection2,
+        '/modules/Students/student_view_details.php'
+    )
+        ? (string) Url::fromModuleRoute('Students', 'student_view_details')
+            .'&gibbonPersonID='
+        : '';
 } elseif ($mode === 'register') {
     $registerPayload = $container->get(RegisterMode::class)
         ->buildPayload(

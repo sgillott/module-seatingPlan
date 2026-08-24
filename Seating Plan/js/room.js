@@ -30,6 +30,10 @@ window.SeatingPlanRoom = (function () {
     var saveAgain = false;
     var drag = null;
 
+    // The last click that landed on an item, for spotting a double click.
+    var lastRelease = null;
+    var DOUBLE_CLICK_MS = 400;
+
     /* ---------------------------------------------------------------- utils */
 
     function clamp(value, min, max) {
@@ -614,12 +618,23 @@ window.SeatingPlanRoom = (function () {
                 dropped = mode.onDrop(drag.moving);
             }
 
+            // Something that was dragged is not half of a double click,
+            // however quickly it happened.
+            lastRelease = null;
+
             // A mode may hand back something to say about the drop - why a
             // tile went back where it came from, say. It has to travel
             // through markDirty(), which writes to the status bar itself
             // and would otherwise wipe a message set inside onDrop().
             markDirty(dropped || undefined);
         } else if (drag.mode === 'move' && !drag.additive) {
+            if (isSecondClickOn(drag.index) && mode.onDoubleClick) {
+                mode.onDoubleClick(drag.index);
+                drag = null;
+
+                return;
+            }
+
             if (drag.withinGroup) {
                 // A plain click inside a group means "just this one", not
                 // "turn everything I had selected".
@@ -635,23 +650,32 @@ window.SeatingPlanRoom = (function () {
         drag = null;
     }
 
-    function onDoubleClick(event) {
-        if (!mode.onDoubleClick) {
-            return;
-        }
+    /**
+     * Whether this release completes a double click on the same item.
+     *
+     * The gesture is recognised here rather than through the browser's own
+     * dblclick event because a press captures the pointer on the room (see
+     * onPointerDown), and a captured pointer makes the click and dblclick
+     * that follow target the room rather than the tile that was pressed -
+     * so a dblclick handler looking for the .sp-item under the cursor finds
+     * nothing at all. By the time a release is being handled the item is
+     * already known, and no hit-testing is needed.
+     *
+     * @param int index The item just released.
+     *
+     * @return bool
+     */
+    function isSecondClickOn(index) {
+        var now = Date.now();
+        var second = lastRelease !== null
+            && lastRelease.index === index
+            && (now - lastRelease.at) <= DOUBLE_CLICK_MS;
 
-        var box = event.target.closest('.sp-item');
-        if (!box) {
-            return;
-        }
+        // A completed double click starts the count again, so a third click
+        // is the first half of the next one rather than another double.
+        lastRelease = second ? null : { index: index, at: now };
 
-        var index = parseInt(box.dataset.index, 10);
-        if (isNaN(index)) {
-            return;
-        }
-
-        event.preventDefault();
-        mode.onDoubleClick(index);
+        return second;
     }
 
     function onContextMenu(event) {
@@ -980,7 +1004,6 @@ window.SeatingPlanRoom = (function () {
         roomEl.addEventListener('pointermove', onPointerMove);
         roomEl.addEventListener('pointerup', onPointerUp);
         roomEl.addEventListener('pointercancel', onPointerUp);
-        roomEl.addEventListener('dblclick', onDoubleClick);
 
         if (config.canEdit) {
             wireToolbar();

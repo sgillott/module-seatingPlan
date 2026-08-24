@@ -3,6 +3,15 @@ Seating Plan
 Graphical classroom seating plans for Gibbon.
 
 
+v0.16.00
+--------
+Added
+  - Double-click a student in the seating plan to open their student profile.
+    Teachers who cannot open student profiles get nothing, rather than being
+    sent to an error page. A single click still just selects the student, and
+    if the plan has unsaved changes the browser asks before leaving.
+
+
 v0.15.02
 --------
 Fixed

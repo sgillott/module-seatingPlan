@@ -353,15 +353,25 @@
         room.select(index);
     }
 
+    /**
+     * Opens the student's own profile.
+     *
+     * The address comes from the server, which leaves it empty for a viewer
+     * whose role cannot open that page - so this is simply not a gesture
+     * that does anything for them.
+     *
+     * Anything unsaved is protected by the shell's own warning on leaving
+     * the page, so this does not need to check first.
+     */
     function onDoubleClick(index) {
         var item = items[index];
 
-        if (!item || item.gibbonPersonID === undefined) {
+        if (!config.studentURL || !item || !item.gibbonPersonID) {
             return;
         }
 
-        window.location.href = 'index.php?q=%2Fmodules%2FStudents%2Fstudent_view_details.php'
-            + '&gibbonPersonID=' + encodeURIComponent(item.gibbonPersonID);
+        window.location.href = config.studentURL
+            + encodeURIComponent(item.gibbonPersonID);
     }
 
     /* ----------------------------------------------------------- the mode */
