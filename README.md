@@ -445,11 +445,11 @@ piece of furniture won't fit the room it's going into. Nothing is created by a r
 
 ## What this module does not do
 
-To keep the module focused, the following are intentionally not included:
+To keep the module maintainable, the following are not included:
 
 - Importing data from any other seating plan application
 - Google Classroom or Microsoft Teams integration
-- Printing a seating plan or a register
+- Printing a register
 - Booking rooms, or resolving timetable clashes
 - Emailing or notifying anybody about a reward, sanction or room exit
 - Creating a reward or sanction record for a lesson that never had one
