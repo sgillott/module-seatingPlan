@@ -1,6 +1,6 @@
 # Seating Plan
 
-Seating Plan turns a classroom into something you can see. Draw a room's furniture once, seat your
+Seating Plan turns a lesson into a classroom you can see in Gibbon. Draw a room's furniture once, seat your
 students in it, and then use that picture to take the register, pick a name, record a reward or a
 sanction, and log who has left the room. It reads your timetable, your classes, your rosters and
 your attendance codes from Gibbon itself rather than keeping a separate copy of any of it, so a
@@ -89,6 +89,8 @@ You draw the layout once. Everything else hangs off it.
 
 ## Quick start
 
+<img width="1235" height="653" alt="SeatingPlan7" src="https://github.com/user-attachments/assets/a67b171f-7813-4180-b8b1-d2930c71c6d3" />
+
 1. Go to **Learn > Seating Plan > My Lessons**. You'll see today's timetable.
 2. Pick a lesson and click **Open Room**. If nobody has drawn this room yet, you'll land in
    Furniture mode with an empty grid.
@@ -139,6 +141,7 @@ The room opens full screen. Along the top are the modes available for that room:
 | **Room Exits** | Log a student out of the room and back |
 
 Furniture is always available. The rest need a lesson (so the module knows which students) and a
+
 saved layout (so there are chairs to sit on) — if they're missing, those modes simply aren't shown
 rather than appearing greyed out.
 
@@ -146,6 +149,8 @@ The back arrow returns you to My Lessons if you came from a lesson, or to Room L
 from there.
 
 ## Furniture: drawing a room
+
+<img width="1238" height="824" alt="SeatingPlan1" src="https://github.com/user-attachments/assets/99aa5772-f3f7-4ddf-b597-a0e5f808ba6d" />
 
 Drag a piece from the palette into the room, then drag it around. The pieces available are Chair,
 Single Desk, Double Desk, Teacher Desk, Benching, Computer, Board, Display Screen, Door, Wall and
@@ -170,6 +175,8 @@ piece is in the way rather than quietly moving or dropping it.
 
 ## Seating: putting students in it
 
+<img width="1343" height="829" alt="SeatingPlan6a" src="https://github.com/user-attachments/assets/9de14952-5ad9-4ed1-bfa6-0120ed604f7b" />
+
 Your students appear as tiles with their photo and first name. Drag a tile onto a chair to seat
 them.
 
@@ -179,6 +186,7 @@ them.
 | Drop on an occupied chair | The two students swap places |
 | Drop between two chairs | Nothing — put them clearly on one of them |
 | Drop on open floor | They stay where you put them for now, but this is **not** saved — it's how you unseat somebody |
+| Click Shuffle button | Students are put into a randomised seating plan |
 
 Only students actually on a chair are saved. The furniture is shown underneath as a read-only
 backdrop, so you can see the room without being able to disturb it.
@@ -202,6 +210,8 @@ or hasn't imported CAT4 scores, those badges simply don't show.
 
 ## Register: taking attendance
 
+<img width="1238" height="821" alt="SeatingPlan3" src="https://github.com/user-attachments/assets/1666c9d7-66e3-48d4-9aa7-eacccfd49639" />
+
 Click a student to mark them. Clicking again cycles forward through your school's attendance codes;
 right-click steps back. A colour wash covers the tile with the code's letter and name.
 
@@ -221,6 +231,8 @@ Taking a register needs your school's own Attendance permission, not just access
 
 ## Picker: choosing a student
 
+<img width="1235" height="823" alt="SeatingPlan4" src="https://github.com/user-attachments/assets/c947edb5-89e1-4b80-b4de-1459af5ac3ca" />
+
 Picker is a cold-call tool. The moment you open it, a yellow highlight starts hopping across the
 seated students. Tap the room to choose: the highlight narrows, slows like a wheel losing momentum,
 and settles on one student, held large on screen. Tap again to start it running.
@@ -236,6 +248,8 @@ the bands are dropped and a tap anywhere draws from the whole room.
 anybody is asked twice, and the same student is never chosen twice running.
 
 ## Rewards and sanctions
+
+<img width="1237" height="821" alt="SeatingPlan5" src="https://github.com/user-attachments/assets/95031150-2ad0-4fc0-8b1b-778b174f0527" />
 
 Arm **Reward** or **Sanction** at the top, then click students. The armed button turns a solid
 colour, and the status bar says which one is armed and what a click will do.
@@ -260,6 +274,8 @@ point back never writes a second one for the same threshold. If a Behaviour reco
 that's done in Gibbon's Manage Behaviour Records.
 
 ## Room exits
+
+<img width="1237" height="823" alt="SeatingPlan6" src="https://github.com/user-attachments/assets/34b9839e-ba56-4a11-a4a5-4b9e7bc7c6a2" />
 
 Click a student to mark them out of the room. Their tile shows how long they've been gone, ticking
 as you watch. Click again to mark them back in.
@@ -309,6 +325,8 @@ export, is from a newer version of the module, or contains furniture that won't 
 refused with a message saying which — and leaves nothing behind.
 
 ## Reports
+
+<img width="923" height="763" alt="SeatingPlan8" src="https://github.com/user-attachments/assets/fcda0a37-3929-4a0e-8e03-6f0c87b3bcb0" />
 
 **Learn > Seating Plan > Reports** covers rewards and sanctions on one page and room exits on
 another, with a link between them.
@@ -437,6 +455,8 @@ To keep the module focused, the following are intentionally not included:
 - Creating a reward or sanction record for a lesson that never had one
 - Changing the Behaviour module's own records — that's done in Behaviour
 
-## Support
+## License
+
+https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3
 
 Author: Steve Gillott. For issues or questions, please open an issue in this repository.
