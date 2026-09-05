@@ -214,6 +214,18 @@ $payload = [
         'noCodesAllowed' => __('No attendance code is available for your '
             . 'role, so the register can be viewed here but not changed.'),
         'badgeSlotEmpty' => __('Empty'),
+        // Shuffle needs real chairs to put people in: a room nobody has drawn
+        // has nothing to seat them on, and a room drawn too small cannot give
+        // everybody their own chair. Both say what to do about it, since the
+        // teacher can fix either one in furniture mode.
+        'shuffleNoChairs' => __('There are no chairs in this room. Draw the '
+            . 'furniture first, then shuffle.'),
+        'shuffleTooFew' => __('Only {chairs} chairs for {students} students. '
+            . 'Draw more chairs first, then shuffle.'),
+        'shuffleConfirm' => __('Move every student to a chair chosen at '
+            . 'random? This replaces the current seating plan.'),
+        'shuffleDone'  => __('{count} students seated at random - check it, '
+            . 'then Save.'),
         'pickerTapToChoose' => __('Tap the left, middle or right of the '
             . 'room to choose from that group.'),
         'pickerTapAgain' => __('Tap again to start over.'),
@@ -494,6 +506,13 @@ $available = array_filter(
             ?></button>
         <?php } ?>
         <?php if ($canEdit && $mode === 'seating') { ?>
+            <button type="button" class="sp-btn" id="spShuffle" title="<?php
+                echo __('Put every student in a chair chosen at random. The '
+                    . 'room needs enough chairs drawn in it first.');
+            ?>"><?php
+                echo icon('solid', 'refresh', 'sp-mode-icon');
+                echo __('Shuffle');
+            ?></button>
             <button type="button" class="sp-btn" id="spBadgesToggle" title="<?php
                 echo __('Choose which badges show in each corner of a '
                     . 'student tile.');

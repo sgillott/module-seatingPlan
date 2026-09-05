@@ -33,9 +33,9 @@ $description = 'Graphical classroom seating plans. Draw a room, seat students '
 $entryURL    = 'seatingPlans.php';
 $type        = 'Additional';
 $category    = 'Learn';
-$version     = '0.17.01';
+$version     = '1.0.00';
 $author      = 'Steve Gillott';
-$url         = 'https://github.com/SteveGillott';
+$url         = 'https://github.com/sgillott';
 
 // Module tables
 $moduleTables[] = "CREATE TABLE `seatingPlanRoomLayout` (
@@ -369,3 +369,4 @@ $hooks[] = "INSERT INTO gibbonHook (name, type, options, gibbonModuleID)
         SELECT 1 FROM gibbonHook
         WHERE name='Seating Plans' AND type='Lesson Planner'
     )";
+

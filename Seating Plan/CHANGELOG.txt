@@ -3,6 +3,19 @@ Seating Plan
 Graphical classroom seating plans for Gibbon.
 
 
+v0.18.00
+--------
+Added
+  - A Shuffle button on the seating plan. It puts every student in a chair
+    chosen at random, then redraws the room. Nothing is written until you
+    press Save, so a shuffle you do not like can be thrown away by leaving
+    the page. If somebody is already seated it asks first, so a plan you
+    arranged by hand is not lost by a stray click.
+  - Shuffle needs the room drawn first. A room with no chairs in it, or one
+    with fewer chairs than students, is told what is missing and left alone
+    rather than half seated.
+
+
 v0.17.01
 --------
 Fixed

@@ -288,6 +288,100 @@
         });
     }
 
+    /* --------------------------------------------------------- shuffling */
+
+    /**
+     * A copy of the list in a random order (Fisher-Yates).
+     *
+     * Pure, and takes its own source of randomness, so a test can hand it a
+     * fixed sequence and check the order it produces.
+     *
+     * @param array    list
+     * @param function random Optional, defaults to Math.random.
+     *
+     * @return array
+     */
+    function shuffled(list, random) {
+        var pick = random || Math.random;
+        var out = list.slice();
+        var i;
+        var j;
+        var swap;
+
+        for (i = out.length - 1; i > 0; i--) {
+            j = Math.floor(pick() * (i + 1));
+            swap = out[i];
+            out[i] = out[j];
+            out[j] = swap;
+        }
+
+        return out;
+    }
+
+    /**
+     * Whether anybody is currently sitting on a chair.
+     *
+     * Decides whether shuffling asks first: a plan somebody arranged is worth
+     * confirming before it is thrown away, an untouched room is not.
+     */
+    function anyoneSeated() {
+        return items.some(function (item) {
+            return isChair(item.posX, item.posY);
+        });
+    }
+
+    /**
+     * Seats every student on a chair picked at random.
+     *
+     * Only ever puts a student on a real chair, so the result is a plan that
+     * saves whole - which is why a room with no chairs, or with fewer chairs
+     * than students, is refused outright rather than half done. Both are the
+     * teacher's own to fix in furniture mode, so each says so.
+     */
+    function shuffle() {
+        if (freePlacement()) {
+            room.setStatus(room.text('shuffleNoChairs'), 'warn');
+            return;
+        }
+
+        if (chairs.length < items.length) {
+            room.setStatus(
+                room.text('shuffleTooFew')
+                    .replace('{chairs}', chairs.length)
+                    .replace('{students}', items.length),
+                'warn'
+            );
+            return;
+        }
+
+        if (items.length === 0) {
+            return;
+        }
+
+        if (anyoneSeated() && !window.confirm(room.text('shuffleConfirm'))) {
+            return;
+        }
+
+        var picks = shuffled(chairs);
+
+        items.forEach(function (item, index) {
+            var parts = picks[index].split(',');
+            item.posX = parseInt(parts[0], 10);
+            item.posY = parseInt(parts[1], 10);
+        });
+
+        // The selection outline would sit on whoever happens to hold that
+        // index now, which is nobody the teacher chose.
+        room.select(-1);
+        room.render();
+
+        // Dirty carries the message itself: everything here is on screen
+        // only until it is saved, the same as a drag.
+        room.markDirty(
+            room.text('shuffleDone').replace('{count}', items.length)
+        );
+    }
+
     /* ---------------------------------------------------------- dragging */
 
     function onDragStart(indices) {
@@ -426,6 +520,14 @@
                 classList: config.classList,
                 seats: JSON.stringify(seats)
             };
+        },
+
+        mount: function () {
+            var shuffleButton = document.getElementById('spShuffle');
+
+            if (shuffleButton) {
+                shuffleButton.addEventListener('click', shuffle);
+            }
         }
     });
 }());
