@@ -20,12 +20,13 @@
     /* ------------------------------------------------------ facing a desk */
 
     // Rotation 0 puts the chair's back at the top, so the student faces down.
-    // Each quarter turn is clockwise, giving: 0 down, 1 left, 2 up, 3 right.
+    // Turning is clockwise in degrees, giving: 0 down, 90 left, 180 up,
+    // 270 right. Facing only ever picks one of these four.
     var FACINGS = [
         { rotation: 0, dx: 0, dy: 1 },
-        { rotation: 1, dx: -1, dy: 0 },
-        { rotation: 2, dx: 0, dy: -1 },
-        { rotation: 3, dx: 1, dy: 0 }
+        { rotation: 90, dx: -1, dy: 0 },
+        { rotation: 180, dx: 0, dy: -1 },
+        { rotation: 270, dx: 1, dy: 0 }
     ];
 
     /**
@@ -134,9 +135,7 @@
             return false;
         }
 
-        item.rotation = rotation;
-
-        return true;
+        return room.rotateTo(item, rotation);
     }
 
     /**

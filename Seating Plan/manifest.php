@@ -33,7 +33,7 @@ $description = 'Graphical classroom seating plans. Draw a room, seat students '
 $entryURL    = 'seatingPlans.php';
 $type        = 'Additional';
 $category    = 'Learn';
-$version     = '1.0.00';
+$version     = '1.2.00';
 $author      = 'Steve Gillott';
 $url         = 'https://github.com/sgillott';
 
@@ -64,7 +64,7 @@ $moduleTables[] = "CREATE TABLE `seatingPlanFurniture` (
     `type` varchar(16) NOT NULL,
     `posX` int(5) NOT NULL COMMENT 'Tenths of a cell from the left wall',
     `posY` int(5) NOT NULL COMMENT 'Tenths of a cell from the front wall',
-    `rotation` int(1) NOT NULL DEFAULT 0,
+    `rotation` int(3) NOT NULL DEFAULT 0 COMMENT 'Degrees clockwise, a multiple of 15',
     `flipped` enum('N','Y') NOT NULL DEFAULT 'N' COMMENT 'Mirrored horizontally',
     `sizeX` int(5) NOT NULL DEFAULT 10 COMMENT 'Width in tenths of a cell',
     `sizeY` int(5) NOT NULL DEFAULT 10 COMMENT 'Height in tenths of a cell',
@@ -117,6 +117,8 @@ $moduleTables[] = "CREATE TABLE `seatingPlanRoomExit` (
     `gibbonSchoolYearID` int(3) UNSIGNED ZEROFILL NOT NULL DEFAULT 0,
     `timeOut` datetime NOT NULL,
     `timeIn` datetime DEFAULT NULL,
+    `timeLimit` datetime DEFAULT NULL
+        COMMENT 'When the lesson ends; the exit is closed then at the latest',
     `gibbonPersonIDCreator` int(10) UNSIGNED ZEROFILL NOT NULL,
     PRIMARY KEY (`seatingPlanRoomExitID`),
     KEY `lookup` (`gibbonSpaceID`,`timeIn`),
@@ -164,6 +166,7 @@ $gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`,
 $gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`, `description`, `value`) VALUES ('Seating Plan', 'behaviourPositiveComment', 'Reward Incident', 'Incident text written on a positive Behaviour record.', 'Recorded from the seating plan.');";
 $gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`, `description`, `value`) VALUES ('Seating Plan', 'behaviourNegativeDescriptor', 'Sanction Descriptor', 'Descriptor written on a negative Behaviour record.', '');";
 $gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`, `description`, `value`) VALUES ('Seating Plan', 'behaviourNegativeLevel', 'Sanction Level', 'Level written on a negative Behaviour record.', '');";
+$gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`, `description`, `value`) VALUES ('Seating Plan', 'roomExitDefaultMinutes', 'Default Time Out', 'Minutes a student is counted as out when nobody marks them back in. Never past the end of the lesson. 0 counts them out until the lesson ends.', '10');";
 $gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`, `description`, `value`) VALUES ('Seating Plan', 'behaviourNegativeComment', 'Sanction Incident', 'Incident text written on a negative Behaviour record.', 'Recorded from the seating plan.');";
 
 // Action rows
@@ -260,8 +263,8 @@ $actionRows[] = [
 
 // Reports are a grouped action, the convention core's own Behaviour module
 // uses: one menu entry, one set of pages, and the highest-precedence action
-// the viewer holds decides whose data they see. _all is every student in the
-// school; _my is only students in classes the viewer teaches.
+// the viewer holds decides whose data they see. _all is every record in the
+// school; _my is only the records the viewer made.
 $reportURLList = 'report_rewards.php,report_roomExits.php,report_student.php';
 
 $actionRows[] = [
@@ -289,8 +292,8 @@ $actionRows[] = [
     'name'                      => 'Reports_my',
     'precedence'                => '0',
     'category'                  => 'Reports',
-    'description'               => 'Report on rewards, sanctions and room '
-        . 'exits for students in your own classes.',
+    'description'               => 'Report on the rewards, sanctions and '
+        . 'room exits you recorded.',
     'URLList'                   => $reportURLList,
     'entryURL'                  => 'report_rewards.php',
     'entrySidebar'              => 'Y',

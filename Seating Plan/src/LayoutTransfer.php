@@ -60,8 +60,10 @@ class LayoutTransfer
      * Raised when the shape of the file changes incompatibly. A file from
      * a newer version than this code understands is refused rather than
      * guessed at.
+     *
+     * 2: rotation is in degrees. Version 1 files counted quarter turns.
      */
-    public const FORMAT_VERSION = 1;
+    public const FORMAT_VERSION = 2;
 
     /**
      * @var RoomLayoutGateway
@@ -184,7 +186,9 @@ class LayoutTransfer
             );
         }
 
-        if ((int) ($payload['formatVersion'] ?? 0) > self::FORMAT_VERSION) {
+        $formatVersion = (int) ($payload['formatVersion'] ?? 0);
+
+        if ($formatVersion > self::FORMAT_VERSION) {
             throw new \InvalidArgumentException(
                 __('That file was made by a newer version of this module.')
             );
@@ -198,7 +202,23 @@ class LayoutTransfer
             );
         }
 
-        return array_map([$this, 'readLayout'], array_values($layouts));
+        $layouts = array_map([$this, 'readLayout'], array_values($layouts));
+
+        // An older file counts quarter turns. Converted here so a layout
+        // exported as a backup can still be imported.
+        if ($formatVersion < 2) {
+            foreach ($layouts as &$layout) {
+                foreach ($layout['furniture'] as &$item) {
+                    if (is_array($item)) {
+                        $item['rotation'] = (int) ($item['rotation'] ?? 0) * 90;
+                    }
+                }
+                unset($item);
+            }
+            unset($layout);
+        }
+
+        return $layouts;
     }
 
     /**

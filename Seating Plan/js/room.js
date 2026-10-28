@@ -73,11 +73,12 @@ window.SeatingPlanRoom = (function () {
      * The footprint an item occupies, in tenths, once rotation is applied.
      */
     function footprint(item) {
-        var turned = item.rotation === 1 || item.rotation === 3;
-        return {
-            w: turned ? item.sizeY : item.sizeX,
-            h: turned ? item.sizeX : item.sizeY
-        };
+        return window.SeatingPlanFurnitureArt.footprint(item);
+    }
+
+    // Degrees, always 0-345.
+    function normalAngle(degrees) {
+        return ((degrees % 360) + 360) % 360;
     }
 
     function rectOf(item) {
@@ -155,6 +156,7 @@ window.SeatingPlanRoom = (function () {
         box.style.setProperty('--r', item.posY);
         box.style.setProperty('--w', print.w);
         box.style.setProperty('--h', print.h);
+        box.classList.toggle('is-angled', item.rotation % 90 !== 0);
 
         box.appendChild(mode.buildArt(item));
 
@@ -163,6 +165,15 @@ window.SeatingPlanRoom = (function () {
             handle.className = 'sp-handle';
             handle.dataset.role = 'resize';
             box.appendChild(handle);
+        }
+
+        // Shown only while selected (see module.css). Turns in 15-degree
+        // steps; a click still turns a quarter turn.
+        if (config.canEdit && definition.rotatable !== false) {
+            var turner = document.createElement('div');
+            turner.className = 'sp-handle sp-handle-rotate';
+            turner.dataset.role = 'rotate';
+            box.appendChild(turner);
         }
 
         return box;
@@ -181,6 +192,7 @@ window.SeatingPlanRoom = (function () {
         box.style.setProperty('--r', item.posY);
         box.style.setProperty('--w', print.w);
         box.style.setProperty('--h', print.h);
+        box.classList.toggle('is-angled', item.rotation % 90 !== 0);
 
         if (mode.positionArt) {
             mode.positionArt(box.querySelector('.sp-art'), item);
@@ -289,22 +301,53 @@ window.SeatingPlanRoom = (function () {
     }
 
     /**
-     * Turns one piece a quarter turn, refusing a turn that would push it out
-     * of the room.
+     * Turns one piece to an angle, keeping its top-left corner where it is,
+     * and refuses a turn that would push it out of the room.
      *
      * @return bool Whether it turned.
      */
-    function rotateItem(item) {
-        var next = (item.rotation + 1) % 4;
-        var turned = next === 1 || next === 3;
-        var w = turned ? item.sizeY : item.sizeX;
-        var h = turned ? item.sizeX : item.sizeY;
+    function rotateTo(item, degrees) {
+        var next = normalAngle(degrees);
+        var print = footprint({ sizeX: item.sizeX, sizeY: item.sizeY, rotation: next });
 
-        if (item.posX + w > limitX() || item.posY + h > limitY()) {
+        if (item.posX + print.w > limitX() || item.posY + print.h > limitY()) {
             return false;
         }
 
         item.rotation = next;
+
+        return true;
+    }
+
+    /**
+     * Turns one piece a quarter turn - what a click, R and the Rotate button
+     * do. Finer angles come from the rotation handle.
+     */
+    function rotateItem(item) {
+        return rotateTo(item, item.rotation + 90);
+    }
+
+    /**
+     * Turns one piece about a fixed centre, for the rotation handle: the
+     * piece spins in place rather than walking across the floor as the box
+     * around it grows and shrinks. Pushed back inside the room if the
+     * larger box would reach past a wall.
+     *
+     * @param object middle The centre to keep, in tenths.
+     *
+     * @return bool Whether it turned.
+     */
+    function turnAbout(item, degrees, middle) {
+        var next = normalAngle(degrees);
+        var print = footprint({ sizeX: item.sizeX, sizeY: item.sizeY, rotation: next });
+
+        if (print.w > limitX() || print.h > limitY()) {
+            return false;
+        }
+
+        item.rotation = next;
+        item.posX = clamp(Math.round(middle.x - print.w / 2), 0, limitX() - print.w);
+        item.posY = clamp(Math.round(middle.y - print.h / 2), 0, limitY() - print.h);
 
         return true;
     }
@@ -470,6 +513,7 @@ window.SeatingPlanRoom = (function () {
         var index = parseInt(box.dataset.index, 10);
         var additive = event.ctrlKey || event.metaKey;
         var resizing = event.target.dataset.role === 'resize';
+        var turning = event.target.dataset.role === 'rotate';
 
         // Pressing on a piece that is already part of a group keeps the group,
         // so the whole thing can be dragged. If the press turns out to be a
@@ -486,13 +530,25 @@ window.SeatingPlanRoom = (function () {
             return;
         }
 
-        // A resize only ever applies to the piece whose handle was grabbed.
-        var moving = resizing ? [index] : selection.slice();
+        // A resize or a turn only ever applies to the piece whose handle was
+        // grabbed.
+        var moving = resizing || turning ? [index] : selection.slice();
         var list = items();
+        var print = footprint(list[index]);
+        var middle = box.getBoundingClientRect();
 
         drag = {
             index: index,
-            mode: resizing ? 'resize' : 'move',
+            mode: resizing ? 'resize' : (turning ? 'rotate' : 'move'),
+            // For a turn: the centre on screen the pointer circles, and the
+            // same centre in tenths, which the piece keeps as it turns.
+            centreX: middle.left + middle.width / 2,
+            centreY: middle.top + middle.height / 2,
+            middle: {
+                x: list[index].posX + print.w / 2,
+                y: list[index].posY + print.h / 2
+            },
+            originRotation: list[index].rotation,
             additive: additive,
             withinGroup: withinGroup,
             moving: moving,
@@ -542,7 +598,8 @@ window.SeatingPlanRoom = (function () {
         var dx = Math.round((event.clientX - drag.startX) / stepPx / snap) * snap;
         var dy = Math.round((event.clientY - drag.startY) / stepPx / snap) * snap;
 
-        if (dx !== 0 || dy !== 0) {
+        // A turn counts as a change only once the angle actually changes.
+        if ((dx !== 0 || dy !== 0) && drag.mode !== 'rotate') {
             drag.moved = true;
         }
 
@@ -580,12 +637,32 @@ window.SeatingPlanRoom = (function () {
             return;
         }
 
+        if (drag.mode === 'rotate') {
+            var angle = Math.atan2(event.clientY - drag.centreY, event.clientX - drag.centreX)
+                - Math.atan2(drag.startY - drag.centreY, drag.startX - drag.centreX);
+            var next = normalAngle(
+                drag.originRotation + Math.round(angle * 180 / Math.PI / 15) * 15
+            );
+
+            if (next !== item.rotation && turnAbout(item, next, drag.middle)) {
+                drag.moved = true;
+                setStatus(next + '°');
+            }
+
+            refreshItem(drag.index);
+
+            return;
+        }
+
         if (drag.mode === 'resize') {
-            var turned = item.rotation === 1 || item.rotation === 3;
-            // While turned, the on-screen axes are swapped relative to the
-            // stored ones, so send the deltas to the matching dimension.
-            var growW = turned ? dy : dx;
-            var growH = turned ? dx : dy;
+            // The handle grows the box on screen, so a drag is shared between
+            // the stored width and depth by how far the piece is turned. At a
+            // quarter turn that is the old swap: across grows the depth.
+            var radians = item.rotation * Math.PI / 180;
+            var cos = Math.abs(Math.cos(radians));
+            var sin = Math.abs(Math.sin(radians));
+            var growW = Math.round(dx * cos + dy * sin);
+            var growH = Math.round(dx * sin + dy * cos);
 
             // One tenth is the floor. Half a cell would force a wall, drawn
             // thinner than that, to fatten the moment it was resized.
@@ -981,6 +1058,7 @@ window.SeatingPlanRoom = (function () {
         setStatus: setStatus,
         text: text,
         rotateSelected: rotateSelected,
+        rotateTo: rotateTo,
         save: save
     };
 

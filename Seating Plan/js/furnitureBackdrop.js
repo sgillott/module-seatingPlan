@@ -22,14 +22,14 @@
                     sizeY: parseInt(furniture.sizeY, 10) || step
                 };
                 var definition = config.catalogue[item.type] || {};
-                var turned = item.rotation === 1 || item.rotation === 3;
+                var print = window.SeatingPlanFurnitureArt.footprint(item);
                 var box = document.createElement('div');
                 box.className = 'sp-item sp-item-backdrop';
                 box.dataset.layer = definition.layer || 'base';
                 box.style.setProperty('--c', item.posX);
                 box.style.setProperty('--r', item.posY);
-                box.style.setProperty('--w', turned ? item.sizeY : item.sizeX);
-                box.style.setProperty('--h', turned ? item.sizeX : item.sizeY);
+                box.style.setProperty('--w', print.w);
+                box.style.setProperty('--h', print.h);
                 box.appendChild(window.SeatingPlanFurnitureArt.buildArt(item, definition));
                 backdrop.appendChild(box);
 

@@ -157,7 +157,8 @@ if ($seatingPlanRoomLayoutID !== '') {
         // The catalogue decides what a student can sit on, so this and the
         // re-snap after a layout update cannot drift apart on the answer.
         if (FurnitureCatalogue::isSeat($item['type'])) {
-            $chairPositions[] = $item['posX'].','.$item['posY'];
+            $spot = FurnitureCatalogue::seatSpot($item);
+            $chairPositions[] = $spot['posX'].','.$spot['posY'];
         }
     }
 }

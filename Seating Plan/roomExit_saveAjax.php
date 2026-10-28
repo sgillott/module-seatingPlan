@@ -47,7 +47,9 @@ header('Content-Type: application/json; charset=utf-8');
  * @param int    $status  HTTP status code.
  * @param string $state   On success only: 'out' or 'in', the state the
  *                         student is in *after* this toggle.
- * @param string $timeOut On success and state='out' only: when they left.
+ * @param string $timeOut   On success and state='out' only: when they left.
+ * @param string $timeLimit On success and state='out' only: when the lesson
+ *                          ends, which the exit cannot run past.
  *
  * @return void
  */
@@ -56,7 +58,8 @@ function seatingPlanRespond(
     string $message,
     int $status = 200,
     string $state = '',
-    string $timeOut = ''
+    string $timeOut = '',
+    string $timeLimit = ''
 ) {
     http_response_code($status);
     $body = ['ok' => $ok, 'message' => $message];
@@ -64,6 +67,7 @@ function seatingPlanRespond(
         $body['state'] = $state;
         if ($state === 'out') {
             $body['timeOut'] = $timeOut;
+            $body['timeLimit'] = $timeLimit;
         }
     }
     echo json_encode($body);
@@ -88,6 +92,9 @@ $gibbonSpaceID = $_POST['gibbonSpaceID'] ?? '';
 $date = $_POST['date'] ?? '';
 $gibbonPersonID = $_POST['gibbonPersonID'] ?? '';
 $anchorTTDayRowClassID = $_POST['anchorTTDayRowClassID'] ?? '';
+// Only sent when recording an exit after the lesson: HH:MM, back optional.
+$timeOut = $_POST['timeOut'] ?? '';
+$timeIn = $_POST['timeIn'] ?? '';
 
 if (
     $gibbonSpaceID === ''
@@ -95,8 +102,14 @@ if (
     || !preg_match('/^\d+(,\d+)*$/', $classList)
     || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
     || !preg_match('/^\d+$/', $anchorTTDayRowClassID)
+    || ($timeOut !== '' && !preg_match('/^\d{2}:\d{2}$/', $timeOut))
+    || ($timeIn !== '' && !preg_match('/^\d{2}:\d{2}$/', $timeIn))
 ) {
     seatingPlanRespond(false, __('Your request failed due to malformed data.'), 400);
+}
+
+if (!TimetableSlotGateway::isRecordable($date)) {
+    seatingPlanRespond(false, __('Records can only be made for a lesson in the past week.'), 409);
 }
 
 $courseClassIDs = explode(',', $classList);
@@ -146,7 +159,49 @@ if (empty($student)) {
 $studentClasses = array_filter(explode(',', $student['courseClassIDs'] ?? ''));
 $gibbonCourseClassID = count($studentClasses) === 1 ? reset($studentClasses) : '0';
 
+// An exit cannot outlast the lesson, and a double lesson counts as one.
+$lesson = $slotGateway->getLessonTimes($slot, $date);
+
 $exitGateway = $container->get(RoomExitGateway::class);
+
+// Recording afterwards: the teacher gives the time out, and the time back if
+// they know it. Without one, the same rule as a forgotten click applies.
+if ($timeOut !== '') {
+    $out = $date.' '.$timeOut.':00';
+    $in = $timeIn !== ''
+        ? $date.' '.$timeIn.':00'
+        : $exitGateway->assumedReturn($out, $lesson['end']);
+
+    if ($lesson['end'] > date('Y-m-d H:i:s')) {
+        seatingPlanRespond(false, __('This lesson has not ended yet.'), 409);
+    }
+
+    if ($out < $lesson['start'] || $out >= $lesson['end'] || $in <= $out || $in > $lesson['end']) {
+        seatingPlanRespond(false, __('The times must fall inside the lesson, with back after out.'), 400);
+    }
+
+    try {
+        $recorded = $exitGateway->recordPastExit(
+            $gibbonPersonID,
+            $gibbonSpaceID,
+            $gibbonPersonIDCreator,
+            $gibbonCourseClassID,
+            $slot['gibbonTTColumnRowID'],
+            $session->get('gibbonSchoolYearID'),
+            $out,
+            $in,
+            $lesson['end']
+        );
+    } catch (\Throwable $e) {
+        $recorded = false;
+    }
+
+    if (empty($recorded)) {
+        seatingPlanRespond(false, __('Your request failed due to a database error.'), 500);
+    }
+
+    seatingPlanRespond(true, __('Your request was completed successfully.'), 200, 'in');
+}
 
 try {
     $result = $exitGateway->toggleForStudent(
@@ -155,15 +210,21 @@ try {
         $gibbonPersonIDCreator,
         $gibbonCourseClassID,
         $slot['gibbonTTColumnRowID'],
-        $session->get('gibbonSchoolYearID')
+        $session->get('gibbonSchoolYearID'),
+        $lesson['end']
     );
+
+    if ($result['state'] === 'ended') {
+        seatingPlanRespond(false, __('This lesson has ended, so a room exit cannot be started.'), 409);
+    }
 
     seatingPlanRespond(
         true,
         __('Your request was completed successfully.'),
         200,
         $result['state'],
-        $result['timeOut']
+        $result['timeOut'],
+        $result['timeLimit']
     );
 } catch (\Throwable $e) {
     seatingPlanRespond(false, __('Your request failed due to a database error.'), 500);

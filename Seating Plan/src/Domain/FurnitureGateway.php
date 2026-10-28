@@ -189,13 +189,21 @@ class FurnitureGateway extends QueryableGateway
             ? max(1, (int) ($item['sizeY'] ?? $defaultY))
             : $defaultY;
 
+        // Degrees clockwise, in the 15-degree steps the rotation handle snaps
+        // to. Anything else only comes from a hand-built request.
         $rotation = (int) ($item['rotation'] ?? 0);
-        $rotation = ($rotation % 4 + 4) % 4;
+        $rotation = ($rotation % 360 + 360) % 360;
 
-        // A quarter or three-quarter turn swaps the footprint.
-        $turned = $rotation === 1 || $rotation === 3;
-        $spanX = $turned ? $sizeY : $sizeX;
-        $spanY = $turned ? $sizeX : $sizeY;
+        if ($rotation % 15 !== 0) {
+            throw new \InvalidArgumentException(
+                sprintf('Item %d has an invalid rotation.', $index + 1)
+            );
+        }
+
+        // A turned piece takes the box around it, not its own size.
+        $print = FurnitureCatalogue::footprint($sizeX, $sizeY, $rotation);
+        $spanX = $print['w'];
+        $spanY = $print['h'];
 
         $posX = (int) ($item['posX'] ?? 0);
         $posY = (int) ($item['posY'] ?? 0);

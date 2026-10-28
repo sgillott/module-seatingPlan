@@ -603,6 +603,38 @@
     z-index: 8;
 }
 
+/* The rotation handle: a dot above the selected piece on a short stalk.
+   Dragging it round turns the piece in 15-degree steps. */
+.sp-handle-rotate {
+    display: none;
+    top: -22px;
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    margin-left: -6px;
+    cursor: grab;
+}
+
+.sp-handle-rotate::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    width: 2px;
+    height: 10px;
+    margin-left: -1px;
+    background: var(--sp-accent);
+}
+
+.sp-item.is-selected > .sp-handle-rotate { display: block; }
+
+/* At an angle the box is larger than the piece. Only the drawn piece and its
+   handles take a click, so the empty corners of the box do not block the
+   furniture next to it. */
+.sp-item.is-angled { pointer-events: none; }
+.sp-item.is-angled > .sp-art,
+.sp-item.is-angled > .sp-handle { pointer-events: auto; }
+
 /* ------------------------------------------------------------------- art */
 
 .sp-art {
@@ -614,7 +646,7 @@
     /* Rotate first, then mirror inside that frame, so a flipped door swings
        the other way whichever wall it is on. */
     transform: translate(-50%, -50%)
-        rotate(calc(var(--rot) * 90deg))
+        rotate(calc(var(--rot) * 1deg))
         scaleX(var(--flip, 1));
     pointer-events: none;
 }
@@ -694,7 +726,7 @@
        the right way up. Turning a door moves its hinge, not its name, and an
        upside-down label is never correct. The inverse of rotate-then-mirror is
        mirror-then-rotate-back. */
-    transform: scaleX(var(--flip, 1)) rotate(calc(var(--rot, 0) * -90deg));
+    transform: scaleX(var(--flip, 1)) rotate(calc(var(--rot, 0) * -1deg));
 }
 
 /* A dark screen needs light text; a door's label sits over its swing arc. */
@@ -1043,6 +1075,28 @@
     font-variant-numeric: tabular-nums;
     border-radius: 0 0 0 4px;
 }
+
+/* Room Exits after the lesson: a small form asking when the student left. */
+.sp-exit-dialog {
+    max-width: calc(100vw - 32px);
+    width: 340px;
+    padding: 16px;
+    border: 1px solid var(--sp-line);
+    border-radius: 8px;
+    background: var(--sp-floor);
+    color: var(--sp-ink);
+}
+.sp-exit-dialog::backdrop { background: rgba(0, 0, 0, .35); }
+.sp-exit-dialog h3 { margin: 0 0 12px; font-size: 16px; }
+.sp-exit-dialog p { margin: 8px 0 0; font-size: 13px; color: var(--sp-muted); }
+.sp-exit-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.sp-exit-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 /* ------------------------------------------------------------------ print */
 

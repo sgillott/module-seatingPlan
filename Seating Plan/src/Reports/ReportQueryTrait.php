@@ -142,12 +142,8 @@ trait ReportQueryTrait
 
     /**
      * Narrows a report to what a viewer holding only Reports_my may see:
-     * anything recorded in a class they teach, plus anything they recorded
-     * themselves.
-     *
-     * The second half matters because a point given to a student who is in
-     * more than one of a room's co-taught classes is filed against class 0,
-     * and would otherwise be invisible to the very teacher who gave it.
+     * the records they made themselves. A colleague's records, even in a
+     * class the viewer also teaches, need Reports_all.
      *
      * @param SelectInterface $query          The query.
      * @param string          $gibbonPersonID The viewer.
@@ -159,15 +155,7 @@ trait ReportQueryTrait
         $gibbonPersonID
     ): SelectInterface {
         return $query
-            ->where(
-                '(r.gibbonPersonIDCreator = :viewer
-                    OR EXISTS (
-                        SELECT 1 FROM gibbonCourseClassPerson AS mine
-                        WHERE mine.gibbonCourseClassID=r.gibbonCourseClassID
-                            AND mine.gibbonPersonID=:viewer
-                            AND mine.role=\'Teacher\'
-                    ))'
-            )
+            ->where('r.gibbonPersonIDCreator = :viewer')
             ->bindValue('viewer', $gibbonPersonID);
     }
 }

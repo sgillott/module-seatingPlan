@@ -26,7 +26,9 @@
 
 namespace Gibbon\Module\SeatingPlan\Domain;
 
+use Gibbon\Contracts\Database\Connection;
 use Gibbon\Domain\QueryCriteria;
+use Gibbon\Domain\System\SettingGateway;
 use Gibbon\Domain\QueryableGateway;
 use Gibbon\Domain\Traits\TableAware;
 use Gibbon\Module\SeatingPlan\Reports\ReportGrouping;
@@ -54,19 +56,63 @@ class RoomExitGateway extends QueryableGateway
     private const DATE_COLUMN = 'DATE(r.timeOut)';
 
     /**
+     * @var SettingGateway
+     */
+    private $settingGateway;
+
+    public function __construct(Connection $db, SettingGateway $settingGateway)
+    {
+        parent::__construct($db);
+        $this->settingGateway = $settingGateway;
+    }
+
+    /**
+     * When a student nobody marked back in is taken to have returned: after
+     * the school's default time out (a module setting), but never later
+     * than the end of the lesson. A setting of 0 means the end of the lesson.
+     *
+     * @param string $timeOut   Y-m-d H:i:s.
+     * @param string $timeLimit Y-m-d H:i:s, when the lesson ends.
+     *
+     * @return string Y-m-d H:i:s.
+     */
+    public function assumedReturn($timeOut, $timeLimit): string
+    {
+        $minutes = $this->defaultMinutes();
+
+        if ($minutes === 0) {
+            return $timeLimit;
+        }
+
+        return min($timeLimit, date('Y-m-d H:i:s', strtotime($timeOut) + $minutes * 60));
+    }
+
+    public function defaultMinutes(): int
+    {
+        return max(0, (int) $this->settingGateway->getSettingByScope(
+            'Seating Plan',
+            'roomExitDefaultMinutes'
+        ));
+    }
+
+    /**
      * Every currently-open exit (no time back in yet) for a room, keyed by
      * student - at most one open row per student can ever exist, enforced
-     * by checking here before opening a new one.
+     * by toggleForStudent() before opening a new one. Exits whose lesson
+     * has ended are closed first, so a forgotten click never shows as a
+     * student still out in a later lesson.
      *
      * @param string $gibbonSpaceID The room.
      *
      * @return array Keyed by gibbonPersonID, each
-     *                ['seatingPlanRoomExitID' => ..., 'timeOut' => ...].
+     *                ['seatingPlanRoomExitID', 'timeOut', 'timeLimit'].
      */
     public function selectOpenExitsByRoom($gibbonSpaceID): array
     {
+        $this->closeEndedExits();
+
         $data = ['gibbonSpaceID' => $gibbonSpaceID];
-        $sql = "SELECT seatingPlanRoomExitID, gibbonPersonID, timeOut
+        $sql = "SELECT seatingPlanRoomExitID, gibbonPersonID, timeOut, timeLimit
             FROM seatingPlanRoomExit
             WHERE gibbonSpaceID=:gibbonSpaceID
                 AND timeIn IS NULL";
@@ -80,33 +126,48 @@ class RoomExitGateway extends QueryableGateway
     }
 
     /**
-     * Marks a student out of the room. The caller is responsible for
-     * having checked there is no open exit for them already (see
-     * selectOpenExitsByRoom()) - this never guesses, it always opens a new
-     * row.
+     * Closes every open exit whose lesson has ended, at the time
+     * assumedReturn() gives. A student cannot be out of a lesson for longer
+     * than the lesson lasts, so a teacher who forgets to mark them back in
+     * loses nothing but the exact return time.
      *
-     * The lesson context is carried alongside the room so an exit can be
-     * reported by class, subject and period rather than only by room and
-     * time - the same three columns the reward ledger keeps, and with the
-     * same meaning for 0: the student belongs to more than one of the
-     * room's co-taught classes, so no class can be named without guessing.
-     *
-     * @param string $gibbonPersonID        The student.
-     * @param string $gibbonSpaceID         The room.
-     * @param string $gibbonPersonIDCreator The teacher recording it.
-     * @param string $gibbonCourseClassID   The student's class, or 0.
-     * @param string $gibbonTTColumnRowID   The period.
-     * @param string $gibbonSchoolYearID    The current school year.
-     *
-     * @return string The new seatingPlanRoomExitID.
+     * @return void
      */
-    public function markOut(
+    public function closeEndedExits()
+    {
+        $minutes = $this->defaultMinutes();
+
+        $this->db()->update(
+            'UPDATE seatingPlanRoomExit
+             SET timeIn='.($minutes > 0
+                ? 'LEAST(timeLimit, timeOut + INTERVAL '.$minutes.' MINUTE)'
+                : 'timeLimit').'
+             WHERE timeIn IS NULL
+                 AND timeLimit <= :now',
+            ['now' => date('Y-m-d H:i:s')]
+        );
+    }
+
+    /**
+     * Records an exit after the lesson, already closed. Nothing is open, so
+     * nothing can race it, unlike toggleForStudent().
+     *
+     * @param string $timeOut   Y-m-d H:i:s.
+     * @param string $timeIn    Y-m-d H:i:s.
+     * @param string $timeLimit Y-m-d H:i:s, when the lesson ended.
+     *
+     * @return int|false The new seatingPlanRoomExitID.
+     */
+    public function recordPastExit(
         $gibbonPersonID,
         $gibbonSpaceID,
         $gibbonPersonIDCreator,
         $gibbonCourseClassID,
         $gibbonTTColumnRowID,
-        $gibbonSchoolYearID
+        $gibbonSchoolYearID,
+        $timeOut,
+        $timeIn,
+        $timeLimit
     ) {
         return $this->insert([
             'gibbonPersonID'        => $gibbonPersonID,
@@ -114,24 +175,11 @@ class RoomExitGateway extends QueryableGateway
             'gibbonCourseClassID'   => $gibbonCourseClassID,
             'gibbonTTColumnRowID'   => $gibbonTTColumnRowID,
             'gibbonSchoolYearID'    => $gibbonSchoolYearID,
-            'timeOut'               => date('Y-m-d H:i:s'),
+            'timeOut'               => $timeOut,
+            'timeIn'                => $timeIn,
+            'timeLimit'             => $timeLimit,
             'gibbonPersonIDCreator' => $gibbonPersonIDCreator,
         ]);
-    }
-
-    /**
-     * Closes a student's open exit.
-     *
-     * @param string $seatingPlanRoomExitID The open row.
-     *
-     * @return bool
-     */
-    public function markIn($seatingPlanRoomExitID): bool
-    {
-        return $this->update(
-            $seatingPlanRoomExitID,
-            ['timeIn' => date('Y-m-d H:i:s')]
-        );
     }
 
     /**
@@ -139,7 +187,18 @@ class RoomExitGateway extends QueryableGateway
      * the room. The room row is locked before the open-exit row is read so
      * two simultaneous first clicks cannot both insert an open exit.
      *
-     * @return array{state:string,timeOut:string}
+     * The lesson context is carried alongside the room so an exit can be
+     * reported by class, subject and period - the same columns the reward
+     * ledger keeps, with the same meaning for class 0: the student belongs
+     * to more than one of the room's co-taught classes.
+     *
+     * @param string $timeLimit When the lesson ends (Y-m-d H:i:s). An exit
+     *                          is never open past it, and none can start
+     *                          after it.
+     *
+     * @return array{state:string,timeOut:string,timeLimit:string} state is
+     *               'out', 'in', or 'ended' when nothing was written
+     *               because the lesson is already over.
      */
     public function toggleForStudent(
         $gibbonPersonID,
@@ -147,7 +206,8 @@ class RoomExitGateway extends QueryableGateway
         $gibbonPersonIDCreator,
         $gibbonCourseClassID,
         $gibbonTTColumnRowID,
-        $gibbonSchoolYearID
+        $gibbonSchoolYearID,
+        $timeLimit
     ): array {
         $transactionStarted = false;
         $now = date('Y-m-d H:i:s');
@@ -163,7 +223,7 @@ class RoomExitGateway extends QueryableGateway
             );
 
             $open = $this->db()->selectOne(
-                'SELECT seatingPlanRoomExitID, timeOut
+                'SELECT seatingPlanRoomExitID, timeOut, timeLimit
                  FROM seatingPlanRoomExit
                  WHERE gibbonSpaceID=:gibbonSpaceID
                      AND gibbonPersonID=:gibbonPersonID
@@ -183,24 +243,32 @@ class RoomExitGateway extends QueryableGateway
                      WHERE seatingPlanRoomExitID=:seatingPlanRoomExitID
                          AND timeIn IS NULL',
                     [
-                        'timeIn' => $now,
+                        'timeIn' => !empty($open['timeLimit']) && $open['timeLimit'] < $now
+                            ? $this->assumedReturn($open['timeOut'], $open['timeLimit'])
+                            : $now,
                         'seatingPlanRoomExitID' => $open['seatingPlanRoomExitID'],
                     ]
                 );
                 $this->db()->commit();
 
-                return ['state' => 'in', 'timeOut' => ''];
+                return ['state' => 'in', 'timeOut' => '', 'timeLimit' => ''];
+            }
+
+            if ($timeLimit <= $now) {
+                $this->db()->commit();
+
+                return ['state' => 'ended', 'timeOut' => '', 'timeLimit' => ''];
             }
 
             $this->db()->insert(
                 'INSERT INTO seatingPlanRoomExit
                     (gibbonPersonID, gibbonSpaceID, gibbonCourseClassID,
                      gibbonTTColumnRowID, gibbonSchoolYearID, timeOut,
-                     gibbonPersonIDCreator)
+                     timeLimit, gibbonPersonIDCreator)
                  VALUES
                     (:gibbonPersonID, :gibbonSpaceID, :gibbonCourseClassID,
                      :gibbonTTColumnRowID, :gibbonSchoolYearID, :timeOut,
-                     :gibbonPersonIDCreator)',
+                     :timeLimit, :gibbonPersonIDCreator)',
                 [
                     'gibbonPersonID' => $gibbonPersonID,
                     'gibbonSpaceID' => $gibbonSpaceID,
@@ -208,12 +276,13 @@ class RoomExitGateway extends QueryableGateway
                     'gibbonTTColumnRowID' => $gibbonTTColumnRowID,
                     'gibbonSchoolYearID' => $gibbonSchoolYearID,
                     'timeOut' => $now,
+                    'timeLimit' => $timeLimit,
                     'gibbonPersonIDCreator' => $gibbonPersonIDCreator,
                 ]
             );
             $this->db()->commit();
 
-            return ['state' => 'out', 'timeOut' => $now];
+            return ['state' => 'out', 'timeOut' => $now, 'timeLimit' => $timeLimit];
         } catch (\Throwable $e) {
             if ($transactionStarted) {
                 $this->db()->rollBack();

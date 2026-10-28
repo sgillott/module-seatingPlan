@@ -184,6 +184,21 @@ if (
         );
     }
 
+    $form->addRow()->addHeading('roomExits', __('Room Exits'));
+
+    $row = $form->addRow();
+    $row->addLabel('roomExitDefaultMinutes', __('Default Time Out'))
+        ->description(__(
+            'Minutes a student is counted as out when nobody marks them back '
+            . 'in. Never past the end of the lesson. Set to 0 to count them '
+            . 'out until the lesson ends.'
+        ));
+    $row->addNumber('roomExitDefaultMinutes')
+        ->minimum(0)
+        ->maximum(120)
+        ->setValue((int) $settingGateway->getSettingByScope('Seating Plan', 'roomExitDefaultMinutes'))
+        ->required();
+
     $row = $form->addRow();
     $row->addFooter();
     $row->addSubmit();

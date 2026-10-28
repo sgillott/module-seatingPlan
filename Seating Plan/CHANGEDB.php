@@ -615,3 +615,60 @@ INSERT INTO gibbonPermission (gibbonActionID, gibbonRoleID)
         AND existing.gibbonRoleID='001'
     )";
 ++$count;
+// v1.1.00
+$sql[$count][0] = "1.1.00";
+$sql[$count][1] = "-- A room exit cannot run past the end of its lesson. A forgotten click
+-- used to leave a student 'out' until somebody next clicked them, which
+-- could be days later, and the reports added every hour of it.
+ALTER TABLE seatingPlanRoomExit
+    ADD COLUMN timeLimit datetime DEFAULT NULL
+        COMMENT 'When the lesson ends; the exit is closed then at the latest'
+        AFTER timeIn
+;end
+-- Existing exits get the end of the period they started in. For a double
+-- lesson that is the first period's end; it is used below only for exits
+-- that are still open or that ran into another day, which are wrong anyway.
+UPDATE seatingPlanRoomExit AS r
+    JOIN gibbonTTColumnRow AS period
+        ON (period.gibbonTTColumnRowID=r.gibbonTTColumnRowID)
+    SET r.timeLimit=TIMESTAMP(DATE(r.timeOut), period.timeEnd)
+    WHERE TIMESTAMP(DATE(r.timeOut), period.timeEnd) > r.timeOut
+;end
+UPDATE seatingPlanRoomExit
+    SET timeIn=timeLimit
+    WHERE timeLimit IS NOT NULL
+    AND timeLimit <= NOW()
+    AND (timeIn IS NULL OR DATE(timeIn) > DATE(timeOut))
+;end
+-- How long a student nobody marked back in is counted as out.
+INSERT INTO gibbonSetting (scope, name, nameDisplay, description, value)
+    SELECT 'Seating Plan', 'roomExitDefaultMinutes', 'Default Time Out',
+        'Minutes a student is counted as out when nobody marks them back in. Never past the end of the lesson. 0 counts them out until the lesson ends.',
+        '10'
+    FROM DUAL
+    WHERE NOT EXISTS (
+        SELECT 1 FROM gibbonSetting
+        WHERE scope='Seating Plan' AND name='roomExitDefaultMinutes'
+    )
+;end
+-- Reports_my now shows only the records the viewer made. A colleague's
+-- records, even in a shared class, need Reports_all.
+UPDATE gibbonAction
+    SET description='Report on the rewards, sanctions and room exits you recorded.'
+    WHERE name='Reports_my'
+    AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule
+        WHERE name='Seating Plan')";
+++$count;
+
+// v1.2.00
+$sql[$count][0] = "1.2.00";
+$sql[$count][1] = "-- Furniture can now be turned in 15-degree steps with a handle, so the
+-- rotation is stored in degrees. Until now it counted quarter turns (0-3).
+ALTER TABLE seatingPlanFurniture
+    MODIFY COLUMN rotation int(3) NOT NULL DEFAULT 0
+        COMMENT 'Degrees clockwise, a multiple of 15'
+;end
+UPDATE seatingPlanFurniture
+    SET rotation=rotation*90
+    WHERE rotation BETWEEN 1 AND 3";
+++$count;

@@ -41,9 +41,9 @@ if (
     return;
 }
 
-// Reports is a grouped action: _all sees every student, _my sees only
-// students in classes the viewer teaches, plus anything they recorded
-// themselves. Whichever the viewer holds with the higher precedence wins.
+// Reports is a grouped action: _all sees everyone's records, _my sees only
+// the records the viewer made. Whichever the viewer holds with the higher
+// precedence wins.
 $highestAction = getHighestGroupedAction($guid, $_GET['q'], $connection2);
 
 if ($highestAction === false) {

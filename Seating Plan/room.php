@@ -237,6 +237,19 @@ $payload = [
         'sanctionArmed' => __('SANCTION - click a student to add one, '
             . 'right-click to take one off.'),
         'armFirst'     => __('Nothing armed - choose Reward or Sanction.'),
+        // Room exits after the lesson: a small form instead of a toggle.
+        'exitPastTitle' => __('Record a room exit for {name}'),
+        'exitPastOut'  => __('Out at'),
+        'exitPastIn'   => __('Back at (optional)'),
+        'exitPastHelp' => __('Leave Back at empty if you do not know. The '
+            . 'student is then counted as out until the end of the lesson.'),
+        'exitPastHelpMinutes' => __('Leave Back at empty if you do not know. '
+            . 'The student is then counted as out for {minutes} minutes.'),
+        'exitPastSave' => __('Save'),
+        'exitPastCancel' => __('Cancel'),
+        'exitPastSaved' => __('Room exit recorded for {name}.'),
+        'exitTooOld'   => __('Records can only be made for a lesson in the '
+            . 'past week.'),
     ],
 ];
 
@@ -308,6 +321,10 @@ if ($mode === 'seating') {
     $payload['roster'] = $roomExitPayload['roster'];
     $payload['seats'] = $roomExitPayload['seats'];
     $payload['openExits'] = $roomExitPayload['openExits'];
+    $payload['lessonStart'] = $roomExitPayload['lessonStart'];
+    $payload['lessonEnd'] = $roomExitPayload['lessonEnd'];
+    $payload['recordable'] = $roomExitPayload['recordable'];
+    $payload['exitDefaultMinutes'] = $roomExitPayload['exitDefaultMinutes'];
     $payload['classList'] = $context->getClassList();
     $payload['date'] = $context->getDate();
     // Lets the save endpoint resolve the lesson from the timetable itself,

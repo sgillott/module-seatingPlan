@@ -133,7 +133,8 @@
                 // layout update, so the three cannot drift apart on the
                 // answer.
                 if (definition.seat) {
-                    chairs.push(chairKey(item.posX, item.posY));
+                    var spot = window.SeatingPlanFurnitureArt.seatSpot(item, STEP);
+                    chairs.push(chairKey(spot.posX, spot.posY));
                 }
             }
         );

@@ -33,28 +33,15 @@ class ReportAccess
             'gibbonPersonIDExit'   => $gibbonPersonID,
         ];
 
+        // Reports_my: only records the viewer made, as in ReportQueryTrait.
         if ($ownClassesOf === null) {
             $rewardScope = '1=1';
             $exitScope = '1=1';
         } else {
-            $rewardScope = "(r.gibbonPersonIDCreator=:viewerReward
-                OR EXISTS (
-                    SELECT 1 FROM gibbonCourseClassPerson AS mine
-                    WHERE mine.gibbonCourseClassID=r.gibbonCourseClassID
-                        AND mine.gibbonPersonID=:viewerRewardTeacher
-                        AND mine.role='Teacher'
-                ))";
-            $exitScope = "(r.gibbonPersonIDCreator=:viewerExit
-                OR EXISTS (
-                    SELECT 1 FROM gibbonCourseClassPerson AS mine
-                    WHERE mine.gibbonCourseClassID=r.gibbonCourseClassID
-                        AND mine.gibbonPersonID=:viewerExitTeacher
-                        AND mine.role='Teacher'
-                ))";
+            $rewardScope = 'r.gibbonPersonIDCreator=:viewerReward';
+            $exitScope = 'r.gibbonPersonIDCreator=:viewerExit';
             $data['viewerReward'] = $ownClassesOf;
-            $data['viewerRewardTeacher'] = $ownClassesOf;
             $data['viewerExit'] = $ownClassesOf;
-            $data['viewerExitTeacher'] = $ownClassesOf;
         }
 
         $sql = "SELECT 1 FROM seatingPlanReward AS r

@@ -13,6 +13,7 @@ use Gibbon\Contracts\Services\Session;
 use Gibbon\Module\SeatingPlan\Domain\StudentRosterGateway;
 use Gibbon\Module\SeatingPlan\Domain\SeatingPlanGateway;
 use Gibbon\Module\SeatingPlan\Domain\RoomExitGateway;
+use Gibbon\Module\SeatingPlan\Domain\TimetableSlotGateway;
 
 /** Builds the room payload for room-exit mode. */
 class RoomExitMode
@@ -20,17 +21,20 @@ class RoomExitMode
     private $rosterGateway;
     private $planGateway;
     private $exitGateway;
+    private $slotGateway;
     private $session;
 
     public function __construct(
         StudentRosterGateway $rosterGateway,
         SeatingPlanGateway $planGateway,
         RoomExitGateway $exitGateway,
+        TimetableSlotGateway $slotGateway,
         Session $session
     ) {
         $this->rosterGateway = $rosterGateway;
         $this->planGateway = $planGateway;
         $this->exitGateway = $exitGateway;
+        $this->slotGateway = $slotGateway;
         $this->session = $session;
     }
 
@@ -52,7 +56,18 @@ class RoomExitMode
             )
             : [];
 
+        // The browser compares lessonEnd with its own clock on each click, so a
+        // room left open past the bell switches to recording afterwards.
+        $lesson = $this->slotGateway->getLessonTimes(
+            $context->getSlot(),
+            $context->getDate()
+        );
+
         return [
+            'lessonStart' => $lesson['start'],
+            'lessonEnd'   => $lesson['end'],
+            'recordable'  => TimetableSlotGateway::isRecordable($context->getDate()),
+            'exitDefaultMinutes' => $this->exitGateway->defaultMinutes(),
             'roster'    => StudentRosterPresenter::build($roster),
             'seats'     => !empty($plan)
                 ? $this->planGateway->selectSeatsByPlan($plan['seatingPlanPlanID'])

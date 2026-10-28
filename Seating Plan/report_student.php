@@ -77,6 +77,7 @@ if (empty($student)) {
 
 $rewardGateway = $container->get(RewardTallyGateway::class);
 $exitGateway = $container->get(RoomExitGateway::class);
+$exitGateway->closeEndedExits();
 
 
 $dateStart = !empty($_GET['dateStart'])

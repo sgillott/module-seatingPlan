@@ -3,6 +3,45 @@ Seating Plan
 Graphical classroom seating plans for Gibbon.
 
 
+v1.2.00
+--------
+Added
+  - Furniture can be turned to an angle. Select a piece and drag the small
+    handle above it round: it turns in steps of 15 degrees, about its own
+    centre, and shows the angle while you turn it. A click, the R key and
+    the Rotate button still turn a piece a quarter turn.
+  - A piece at an angle only takes a click on the piece itself, not on the
+    empty corners around it, so it does not get in the way of the furniture
+    next to it.
+  - A student sits in the middle of a chair at an angle.
+Changed
+  - Exported layout files now store the angle in degrees. Files exported
+    from earlier versions still import as before.
+
+
+v1.1.00
+--------
+Changed
+  - A room exit now ends with the lesson at the latest. If nobody marks the
+    student back in, they are counted as out for a default time (10 minutes
+    unless the school changes it), and never past the end of the lesson, so
+    a forgotten click no longer reports a student out of class for days. A
+    double lesson counts as one lesson that ends with its last period.
+  - The default time out is set under Behaviour Settings, Room Exits. Set it
+    to 0 to count a student out until the end of the lesson instead.
+  - Room exits can be recorded after the lesson. Open the lesson from My
+    Lessons, choose Room Exits, and click the student: a small form asks
+    when they went out, already filled in with the start of the lesson.
+    "Back at" can be left empty, and the default time out is used.
+  - Rewards, sanctions and room exits can be recorded for a lesson today or
+    up to a week back, and never for a future date.
+  - Existing exits that were still open, or that ran on into another day,
+    are closed at the end of the period they started in.
+  - Reports for teachers (Reports_my) now show only the records that teacher
+    made. Seeing a colleague's records, even in a shared class, needs the
+    Reports_all permission, which Administrators have by default.
+
+
 v0.18.00
 --------
 Added

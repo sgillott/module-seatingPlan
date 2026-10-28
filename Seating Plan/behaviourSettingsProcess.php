@@ -86,6 +86,11 @@ $values['behaviourRepeatEvery'] = (string) max(
     min(99, (int) ($_POST['behaviourRepeatEvery'] ?? 1))
 );
 
+$values['roomExitDefaultMinutes'] = (string) max(
+    0,
+    min(120, (int) ($_POST['roomExitDefaultMinutes'] ?? 10))
+);
+
 foreach (['Positive', 'Negative'] as $type) {
     $descriptor = trim($_POST['behaviour'.$type.'Descriptor'] ?? '');
     $level = trim($_POST['behaviour'.$type.'Level'] ?? '');

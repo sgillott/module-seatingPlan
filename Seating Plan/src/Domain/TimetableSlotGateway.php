@@ -88,6 +88,58 @@ class TimetableSlotGateway extends Gateway
     }
 
     /**
+     * When a lesson starts and ends. A double lesson runs from the start of
+     * its first back-to-back period in the room to the end of its last.
+     *
+     * @param array  $slot A row from getSlot().
+     * @param string $date Y-m-d.
+     *
+     * @return array ['start' => 'Y-m-d H:i:s', 'end' => 'Y-m-d H:i:s']
+     */
+    public function getLessonTimes(array $slot, $date): array
+    {
+        $daySlots = $this->selectClassSlotsOnDay(
+            $slot['gibbonCourseClassID'],
+            $slot['gibbonTTDayID'],
+            $date
+        );
+        $run = self::findContiguousRun(
+            $daySlots,
+            $slot['gibbonSpaceID'],
+            $slot['gibbonTTColumnRowID']
+        );
+
+        $start = $slot['timeStart'];
+        $end = $slot['timeEnd'];
+
+        foreach ($daySlots as $row) {
+            if (!empty($run) && $row['gibbonTTDayRowClassID'] == $run[0]) {
+                $start = $row['timeStart'];
+            }
+            if (!empty($run) && $row['gibbonTTDayRowClassID'] == $run[count($run) - 1]) {
+                $end = $row['timeEnd'];
+            }
+        }
+
+        return ['start' => $date.' '.$start, 'end' => $date.' '.$end];
+    }
+
+    /**
+     * Whether rewards, sanctions and room exits can still be recorded for a
+     * lesson on this date: today, or up to a week back, so a teacher can
+     * catch up after a busy lesson. Never a future date.
+     *
+     * @param string $date Y-m-d.
+     *
+     * @return bool
+     */
+    public static function isRecordable($date): bool
+    {
+        return $date <= date('Y-m-d')
+            && $date >= date('Y-m-d', strtotime('-7 days'));
+    }
+
+    /**
      * Every period one class runs on one day, in time order.
      *
      * Used to find a multi-period lesson's full run of periods: the caller

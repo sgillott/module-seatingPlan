@@ -41,5 +41,39 @@ window.SeatingPlanFurnitureArt = (function () {
         return art;
     }
 
-    return { buildArt: buildArt, applyArt: applyArt };
+    /**
+     * The box a piece takes on the floor once turned, in tenths. Must give
+     * the same answer as FurnitureCatalogue::footprint() on the server, or a
+     * piece placed here is refused when it is saved.
+     */
+    function footprint(item) {
+        var angle = (item.rotation || 0) * Math.PI / 180;
+        var cos = Math.abs(Math.cos(angle));
+        var sin = Math.abs(Math.sin(angle));
+
+        return {
+            w: Math.round(item.sizeX * cos + item.sizeY * sin),
+            h: Math.round(item.sizeX * sin + item.sizeY * cos)
+        };
+    }
+
+    /**
+     * Where a student sits on a chair: a one-cell tile centred on it, as
+     * FurnitureCatalogue::seatSpot() works it out on the server.
+     */
+    function seatSpot(item, step) {
+        var print = footprint(item);
+
+        return {
+            posX: item.posX + Math.floor((print.w - step) / 2),
+            posY: item.posY + Math.floor((print.h - step) / 2)
+        };
+    }
+
+    return {
+        buildArt: buildArt,
+        applyArt: applyArt,
+        footprint: footprint,
+        seatSpot: seatSpot
+    };
 }());

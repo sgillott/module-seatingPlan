@@ -66,7 +66,8 @@
                 // matching seating mode and the save endpoint rather than
                 // naming one type here.
                 if (definition.seat) {
-                    chairs.push(chairKey(item.posX, item.posY));
+                    var spot = window.SeatingPlanFurnitureArt.seatSpot(item, STEP);
+                    chairs.push(chairKey(spot.posX, spot.posY));
                 }
             }
         );

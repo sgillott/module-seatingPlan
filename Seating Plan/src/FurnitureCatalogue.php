@@ -205,6 +205,52 @@ class FurnitureCatalogue
     }
 
     /**
+     * The box a piece takes on the floor once turned, in tenths. Must give
+     * the same answer as footprint() in js/furnitureArt.js, or a piece the
+     * designer accepts is refused when it is saved.
+     *
+     * @param int $sizeX    Unturned width in tenths.
+     * @param int $sizeY    Unturned depth in tenths.
+     * @param int $rotation Degrees clockwise, a multiple of 15.
+     *
+     * @return array ['w' => int, 'h' => int]
+     */
+    public static function footprint(int $sizeX, int $sizeY, int $rotation): array
+    {
+        $angle = $rotation * M_PI / 180;
+        $cos = abs(cos($angle));
+        $sin = abs(sin($angle));
+
+        return [
+            'w' => (int) round($sizeX * $cos + $sizeY * $sin),
+            'h' => (int) round($sizeX * $sin + $sizeY * $cos),
+        ];
+    }
+
+    /**
+     * Where a student sits on a chair: a one-cell tile centred on it. That
+     * is the chair's own corner unless the chair is turned at an angle,
+     * which makes the box around it larger than the chair.
+     *
+     * @param array $item A furniture row (posX, posY, sizeX, sizeY, rotation).
+     *
+     * @return array ['posX' => int, 'posY' => int]
+     */
+    public static function seatSpot(array $item): array
+    {
+        $print = self::footprint(
+            (int) $item['sizeX'],
+            (int) $item['sizeY'],
+            (int) $item['rotation']
+        );
+
+        return [
+            'posX' => (int) $item['posX'] + intdiv($print['w'] - self::SUBDIVISIONS, 2),
+            'posY' => (int) $item['posY'] + intdiv($print['h'] - self::SUBDIVISIONS, 2),
+        ];
+    }
+
+    /**
      * Whether a type can be mirrored, giving it a left and right hand.
      *
      * @param string $type The type key.

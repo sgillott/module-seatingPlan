@@ -62,6 +62,7 @@ $grouping = ReportGrouping::definition($groupBy);
 echo $filters->getOutput($values);
 
 $gateway = $container->get(RoomExitGateway::class);
+$gateway->closeEndedExits();
 
 $criteria = $gateway->newQueryCriteria(true)
     ->pageSize(50)

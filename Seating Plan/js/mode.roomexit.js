@@ -88,7 +88,8 @@
                 flipped: false,
                 sizeX: STEP,
                 sizeY: STEP,
-                timeOut: open ? open.timeOut : null
+                timeOut: open ? open.timeOut : null,
+                timeLimit: open ? open.timeLimit : null
             };
         });
 
@@ -109,12 +110,17 @@
         return document.querySelector('[data-index="' + index + '"]');
     }
 
-    function elapsedText(timeOut) {
-        // Safari/iOS need the space swapped for "T" to parse a MySQL
-        // datetime string reliably - matching the one place a date string
-        // built server-side is handed back to JS in this module.
-        var started = new Date(timeOut.replace(' ', 'T'));
-        var seconds = Math.max(0, Math.floor((Date.now() - started.getTime()) / 1000));
+    // Safari/iOS need the space swapped for "T" to parse a MySQL datetime
+    // string reliably.
+    function parseTime(value) {
+        return new Date(value.replace(' ', 'T')).getTime();
+    }
+
+    function elapsedText(timeOut, timeLimit) {
+        // The clock stops when the lesson ends: the server closes the exit
+        // at that moment, so counting on would show a time never recorded.
+        var now = timeLimit ? Math.min(Date.now(), parseTime(timeLimit)) : Date.now();
+        var seconds = Math.max(0, Math.floor((now - parseTime(timeOut)) / 1000));
         var mins = Math.floor(seconds / 60);
         var secs = seconds % 60;
 
@@ -149,7 +155,7 @@
             box.appendChild(badge);
         }
 
-        badge.textContent = elapsedText(item.timeOut);
+        badge.textContent = elapsedText(item.timeOut, item.timeLimit);
     }
 
     function updateAllBadges() {
@@ -162,7 +168,96 @@
 
     /* ------------------------------------------------------------- saving */
 
+    // Once the lesson is over a click cannot mean "out now", so it asks when.
+    // A student still shown out is closed by the ordinary toggle instead.
     function onClick(index) {
+        var item = items[index];
+
+        if (item.timeOut || Date.now() < parseTime(config.lessonEnd)) {
+            send(index, null);
+            return;
+        }
+
+        if (!config.recordable) {
+            room.setStatus(room.text('exitTooOld'), 'error');
+            return;
+        }
+
+        openPastForm(index);
+    }
+
+    function timeOf(datetime) {
+        return datetime.substr(11, 5);
+    }
+
+    function field(labelText, value) {
+        var label = document.createElement('label');
+        var input = document.createElement('input');
+
+        label.className = 'sp-exit-field';
+        label.textContent = labelText;
+        input.type = 'time';
+        input.value = value;
+        input.min = timeOf(config.lessonStart);
+        input.max = timeOf(config.lessonEnd);
+        label.appendChild(input);
+
+        return { label: label, input: input };
+    }
+
+    function openPastForm(index) {
+        var item = items[index];
+        var dialog = document.createElement('dialog');
+        var form = document.createElement('form');
+        var title = document.createElement('h3');
+        var help = document.createElement('p');
+        var buttons = document.createElement('div');
+        var save = document.createElement('button');
+        var cancel = document.createElement('button');
+        var out = field(room.text('exitPastOut'), timeOf(config.lessonStart));
+        var back = field(room.text('exitPastIn'), '');
+
+        dialog.className = 'sp-exit-dialog';
+        form.method = 'dialog';
+        title.textContent = room.text('exitPastTitle').replace('{name}', item.name);
+        title.setAttribute('translate', 'no');
+        help.textContent = config.exitDefaultMinutes > 0
+            ? room.text('exitPastHelpMinutes').replace('{minutes}', config.exitDefaultMinutes)
+            : room.text('exitPastHelp');
+        out.input.required = true;
+        buttons.className = 'sp-exit-buttons';
+        save.className = 'sp-btn sp-btn-primary';
+        save.value = 'save';
+        save.textContent = room.text('exitPastSave');
+        cancel.className = 'sp-btn';
+        cancel.type = 'button';
+        cancel.textContent = room.text('exitPastCancel');
+        cancel.addEventListener('click', function () {
+            dialog.close();
+        });
+
+        buttons.appendChild(cancel);
+        buttons.appendChild(save);
+        form.appendChild(title);
+        form.appendChild(out.label);
+        form.appendChild(back.label);
+        form.appendChild(help);
+        form.appendChild(buttons);
+        dialog.appendChild(form);
+
+        form.addEventListener('submit', function () {
+            send(index, { timeOut: out.input.value, timeIn: back.input.value });
+        });
+        dialog.addEventListener('close', function () {
+            dialog.remove();
+        });
+
+        document.getElementById('spDesigner').appendChild(dialog);
+        dialog.showModal();
+        out.input.focus();
+    }
+
+    function send(index, times) {
         var item = items[index];
         var personID = String(item.gibbonPersonID);
 
@@ -186,6 +281,10 @@
         body.set('date', config.date);
         body.set('anchorTTDayRowClassID', config.anchorTTDayRowClassID);
         body.set('gibbonPersonID', item.gibbonPersonID);
+        if (times) {
+            body.set('timeOut', times.timeOut);
+            body.set('timeIn', times.timeIn);
+        }
 
         fetch(config.roomExitSaveURL, {
             method: 'POST',
@@ -207,7 +306,12 @@
             // The server is authoritative: never predict the next state in
             // the browser, especially when an old response arrives late.
             item.timeOut = result.state === 'out' ? result.timeOut : null;
+            item.timeLimit = result.state === 'out' ? result.timeLimit : null;
             updateBadge(index);
+
+            if (times) {
+                room.setStatus(room.text('exitPastSaved').replace('{name}', item.name), 'ok');
+            }
         }).catch(function () {
             if (pendingByStudent[personID] === requestID) {
                 room.setStatus(room.text('saveFailed'), 'error');

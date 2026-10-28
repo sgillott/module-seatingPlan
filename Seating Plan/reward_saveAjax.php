@@ -104,6 +104,10 @@ if (
     seatingPlanRespond(false, __('Your request failed due to malformed data.'), 400);
 }
 
+if (!TimetableSlotGateway::isRecordable($date)) {
+    seatingPlanRespond(false, __('Records can only be made for a lesson in the past week.'), 409);
+}
+
 $courseClassIDs = explode(',', $classList);
 $gibbonPersonIDCreator = $session->get('gibbonPersonID');
 

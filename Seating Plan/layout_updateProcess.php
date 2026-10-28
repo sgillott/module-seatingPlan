@@ -133,7 +133,7 @@ try {
 
     foreach ($furnitureGateway->selectFurnitureByLayout($seatingPlanRoomLayoutID) as $item) {
         if (FurnitureCatalogue::isSeat($item['type'])) {
-            $chairs[] = $item;
+            $chairs[] = array_merge($item, FurnitureCatalogue::seatSpot($item));
         }
     }
 
