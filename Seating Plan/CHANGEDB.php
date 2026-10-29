@@ -672,3 +672,42 @@ UPDATE seatingPlanFurniture
     SET rotation=rotation*90
     WHERE rotation BETWEEN 1 AND 3";
 ++$count;
+
+// v1.3.00
+$sql[$count][0] = "1.3.00";
+$sql[$count][1] = "-- A head of department sees the records of the departments they
+-- coordinate: a new Reports_department action between _my and _all.
+-- No role gets it by default; grant it under Manage Permissions.
+UPDATE gibbonAction SET precedence='2'
+    WHERE name='Reports_all'
+    AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule
+        WHERE name='Seating Plan')
+;end
+INSERT INTO gibbonAction (gibbonModuleID, name, precedence, category,
+        description, URLList, entryURL, entrySidebar, menuShow,
+        defaultPermissionAdmin, defaultPermissionTeacher,
+        defaultPermissionStudent, defaultPermissionParent,
+        defaultPermissionSupport, categoryPermissionStaff,
+        categoryPermissionStudent, categoryPermissionParent,
+        categoryPermissionOther)
+    SELECT gibbonModuleID, 'Reports_department', '1', 'Reports',
+        'Report on the rewards, sanctions and room exits you recorded, and those recorded in classes of departments you coordinate.',
+        'report_rewards.php,report_roomExits.php,report_student.php',
+        'report_rewards.php', 'Y', 'Y',
+        'N', 'N', 'N', 'N', 'N', 'Y', 'N', 'N', 'N'
+    FROM gibbonModule
+    WHERE name='Seating Plan'
+    AND NOT EXISTS (
+        SELECT 1 FROM gibbonAction AS existing
+        WHERE existing.name='Reports_department'
+        AND existing.gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule
+            WHERE name='Seating Plan')
+    )
+;end
+-- Manage Records now only reaches what the viewer's Reports permission shows.
+UPDATE gibbonAction
+    SET description='Correct or remove a student''s reward, sanction or room exit record for a lesson. Only records your Reports permission lets you see.'
+    WHERE name='Manage Records'
+    AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule
+        WHERE name='Seating Plan')";
+++$count;

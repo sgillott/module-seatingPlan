@@ -59,9 +59,7 @@ if ($gibbonPersonID === '') {
     return;
 }
 
-$scopeTo = $highestAction === 'Reports_my'
-    ? $session->get('gibbonPersonID')
-    : null;
+$scopeTo = ReportAccess::scopeFor($highestAction, $session->get('gibbonPersonID'));
 
 if (!$container->get(ReportAccess::class)->canViewStudent($gibbonPersonID, $scopeTo)) {
     $page->addError(__('The specified record does not exist.'));
@@ -87,7 +85,14 @@ $dateEnd = !empty($_GET['dateEnd'])
     ? Format::dateConvert($_GET['dateEnd'])
     : date('Y-m-d');
 
-$filters = ['dateStart' => $dateStart, 'dateEnd' => $dateEnd];
+// The Mine / Others' choice comes with the link from the report; this page
+// has no toggle of its own, so without one it shows everything in scope.
+$filters = [
+    'dateStart'     => $dateStart,
+    'dateEnd'       => $dateEnd,
+    'records'       => $_GET['records'] ?? 'all',
+    'recordsViewer' => $session->get('gibbonPersonID'),
+];
 
 $page->breadcrumbs
     ->add(__('Rewards & Sanctions'), 'report_rewards.php')

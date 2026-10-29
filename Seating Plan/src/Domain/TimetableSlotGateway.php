@@ -144,10 +144,11 @@ class TimetableSlotGateway extends Gateway
      *
      * Used to find a multi-period lesson's full run of periods: the caller
      * filters this to the room it cares about, then walks outward from the
-     * period it started at while each neighbour's start time meets the
-     * previous one's end time. There is no explicit period-sequence column
-     * on gibbonTTColumnRow, only timeStart/timeEnd, so time-chaining is the
-     * only ordering available and the correct one to use.
+     * period it started at while each neighbour is the next row of the
+     * day's timetable column. gibbonTTColumnRow has no sequence column, so
+     * `position` counts the column's rows that start earlier. Times are not
+     * compared: a school may leave a few minutes between the two halves of
+     * a double, while a break or lunch is a row of its own.
      *
      * @param string $gibbonCourseClassID The class.
      * @param string $gibbonTTDayID       The timetable day.
@@ -171,7 +172,10 @@ class TimetableSlotGateway extends Gateway
                 slot.gibbonTTColumnRowID,
                 COALESCE(moved.gibbonSpaceID, slot.gibbonSpaceID) AS gibbonSpaceID,
                 gibbonTTColumnRow.timeStart,
-                gibbonTTColumnRow.timeEnd
+                gibbonTTColumnRow.timeEnd,
+                (SELECT COUNT(*) FROM gibbonTTColumnRow AS earlier
+                    WHERE earlier.gibbonTTColumnID=gibbonTTColumnRow.gibbonTTColumnID
+                    AND earlier.timeStart < gibbonTTColumnRow.timeStart) AS position
             FROM gibbonTTDayRowClass AS slot
             JOIN gibbonTTColumnRow
                 ON (gibbonTTColumnRow.gibbonTTColumnRowID=slot.gibbonTTColumnRowID)
@@ -234,14 +238,14 @@ class TimetableSlotGateway extends Gateway
         $periods = [$roomSlots[$startIndex]['gibbonTTDayRowClassID']];
 
         for ($i = $startIndex - 1; $i >= 0; $i--) {
-            if ($roomSlots[$i]['timeEnd'] !== $roomSlots[$i + 1]['timeStart']) {
+            if ($roomSlots[$i]['position'] + 1 != $roomSlots[$i + 1]['position']) {
                 break;
             }
             array_unshift($periods, $roomSlots[$i]['gibbonTTDayRowClassID']);
         }
 
         for ($i = $startIndex + 1; $i < count($roomSlots); $i++) {
-            if ($roomSlots[$i]['timeStart'] !== $roomSlots[$i - 1]['timeEnd']) {
+            if ($roomSlots[$i]['position'] != $roomSlots[$i - 1]['position'] + 1) {
                 break;
             }
             $periods[] = $roomSlots[$i]['gibbonTTDayRowClassID'];

@@ -26,6 +26,7 @@
 
 use Gibbon\Services\Format;
 use Gibbon\Tables\DataTable;
+use Gibbon\Module\SeatingPlan\Reports\ReportAccess;
 use Gibbon\Module\SeatingPlan\Reports\ReportFilters;
 use Gibbon\Module\SeatingPlan\Reports\ReportGrouping;
 use Gibbon\Module\SeatingPlan\Reports\ReportView;
@@ -41,9 +42,9 @@ if (
     return;
 }
 
-// Reports is a grouped action: _all sees everyone's records, _my sees only
-// the records the viewer made. Whichever the viewer holds with the higher
-// precedence wins.
+// Reports is a grouped action: _all sees everyone's records, _department
+// adds the classes of departments the viewer coordinates to their own, _my
+// sees only the records the viewer made. The highest precedence wins.
 $highestAction = getHighestGroupedAction($guid, $_GET['q'], $connection2);
 
 if ($highestAction === false) {
@@ -51,6 +52,8 @@ if ($highestAction === false) {
 
     return;
 }
+
+$scope = ReportAccess::scopeFor($highestAction, $session->get('gibbonPersonID'));
 
 $page->breadcrumbs->add(__('Rewards & Sanctions'));
 $page->scripts->add('chart');
@@ -62,7 +65,7 @@ $values = $filters->values();
 $groupBy = $filters->grouping();
 $grouping = ReportGrouping::definition($groupBy);
 
-echo $filters->getOutput($values);
+echo $filters->getOutput($values, $scope === null || $scope['departments']);
 
 $gateway = $container->get(RewardTallyGateway::class);
 
@@ -74,16 +77,13 @@ $records = $gateway->queryTally(
     $criteria,
     $groupBy,
     $values,
-    $highestAction === 'Reports_my' ? $session->get('gibbonPersonID') : null
+    $scope
 );
 
 // Totals across everything the filters select, not just this page - a
 // headline number that moved when the reader turned the page would be
 // telling them something untrue.
-$totals = $gateway->summariseTally(
-    $values,
-    $highestAction === 'Reports_my' ? $session->get('gibbonPersonID') : null
-);
+$totals = $gateway->summariseTally($values, $scope);
 
 echo ReportView::summary([
     __('Rewards')   => $totals['positive'],
@@ -159,12 +159,13 @@ if ($groupBy === 'student') {
     $dateEnd = Format::date($values['dateEnd']);
 
     $table->addActionColumn()
-        ->format(function ($row, $actions) use ($dateStart, $dateEnd) {
+        ->format(function ($row, $actions) use ($dateStart, $dateEnd, $values) {
             $actions->addAction('view', __('View Details'))
                 ->setURL('/modules/Seating Plan/report_student.php')
                 ->addParam('gibbonPersonID', $row['groupID'])
                 ->addParam('dateStart', $dateStart)
-                ->addParam('dateEnd', $dateEnd);
+                ->addParam('dateEnd', $dateEnd)
+                ->addParam('records', $values['records']);
         });
 }
 

@@ -26,6 +26,7 @@
 
 use Gibbon\Services\Format;
 use Gibbon\Tables\DataTable;
+use Gibbon\Module\SeatingPlan\Reports\ReportAccess;
 use Gibbon\Module\SeatingPlan\Reports\ReportFilters;
 use Gibbon\Module\SeatingPlan\Reports\ReportGrouping;
 use Gibbon\Module\SeatingPlan\Reports\ReportView;
@@ -49,6 +50,8 @@ if ($highestAction === false) {
     return;
 }
 
+$scope = ReportAccess::scopeFor($highestAction, $session->get('gibbonPersonID'));
+
 $page->breadcrumbs->add(__('Room Exits'));
 $page->scripts->add('chart');
 
@@ -59,7 +62,7 @@ $values = $filters->values();
 $groupBy = $filters->grouping();
 $grouping = ReportGrouping::definition($groupBy);
 
-echo $filters->getOutput($values);
+echo $filters->getOutput($values, $scope === null || $scope['departments']);
 
 $gateway = $container->get(RoomExitGateway::class);
 $gateway->closeEndedExits();
@@ -72,15 +75,12 @@ $records = $gateway->queryExits(
     $criteria,
     $groupBy,
     $values,
-    $highestAction === 'Reports_my' ? $session->get('gibbonPersonID') : null
+    $scope
 );
 
 // Totals across everything the filters select, not just this page - see
 // the same note in report_rewards.php.
-$totals = $gateway->summariseExits(
-    $values,
-    $highestAction === 'Reports_my' ? $session->get('gibbonPersonID') : null
-);
+$totals = $gateway->summariseExits($values, $scope);
 
 echo ReportView::summary([
     __('Exits')     => $totals['exits'],
@@ -160,12 +160,13 @@ if ($groupBy === 'student') {
     $dateEnd = Format::date($values['dateEnd']);
 
     $table->addActionColumn()
-        ->format(function ($row, $actions) use ($dateStart, $dateEnd) {
+        ->format(function ($row, $actions) use ($dateStart, $dateEnd, $values) {
             $actions->addAction('view', __('View Details'))
                 ->setURL('/modules/Seating Plan/report_student.php')
                 ->addParam('gibbonPersonID', $row['groupID'])
                 ->addParam('dateStart', $dateStart)
-                ->addParam('dateEnd', $dateEnd);
+                ->addParam('dateEnd', $dateEnd)
+                ->addParam('records', $values['records']);
         });
 }
 

@@ -3,6 +3,29 @@ Seating Plan
 Graphical classroom seating plans for Gibbon.
 
 
+v1.3.00
+--------
+Added
+  - A new Reports permission for heads of department, Reports_department.
+    It shows your own records, and the records from classes in departments
+    where you are Coordinator or Assistant Coordinator (set in School Admin,
+    Departments). No role has it after the update: grant it under Manage
+    Permissions, and remove Reports_all from the roles that should only see
+    their departments.
+  - A Records choice on the Rewards & Sanctions and Room Exits reports, for
+    anyone who can see colleagues' records: Mine, Others' or All I can see.
+    The reports open on Mine. View Details keeps the choice.
+Changed
+  - Manage Records now only lets you correct or delete the records your
+    Reports permission lets you see. Someone with Manage Records but no
+    Reports permission can only correct their own records.
+Fixed
+  - A double lesson with a few minutes between its two periods now counts
+    as one lesson. The register marks both periods, and a room exit runs to
+    the end of the second. Two periods join when nothing else in the
+    timetable sits between them, so a break or lunch still separates them.
+
+
 v1.2.00
 --------
 Added

@@ -27,6 +27,7 @@
 use Gibbon\Http\Url;
 use Gibbon\Domain\System\LogGateway;
 use Gibbon\Module\SeatingPlan\RecordAdmin;
+use Gibbon\Module\SeatingPlan\Reports\ReportAccess;
 use Gibbon\Module\SeatingPlan\Domain\RewardTallyGateway;
 use Gibbon\Module\SeatingPlan\Domain\RoomExitGateway;
 
@@ -50,7 +51,11 @@ if (
     exit;
 }
 
-$record = $container->get(RecordAdmin::class)->find($type, $recordID);
+$record = $container->get(RecordAdmin::class)->find(
+    $type,
+    $recordID,
+    ReportAccess::viewerScope($guid, $connection2, $session->get('gibbonPersonID'))
+);
 
 if (empty($record)) {
     $URL = $URL->withReturn('error1');

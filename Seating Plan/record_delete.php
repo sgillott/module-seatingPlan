@@ -28,6 +28,7 @@ use Gibbon\Services\Format;
 use Gibbon\Forms\Prefab\DeleteForm;
 use Gibbon\Module\SeatingPlan\BehaviourPolicy;
 use Gibbon\Module\SeatingPlan\RecordAdmin;
+use Gibbon\Module\SeatingPlan\Reports\ReportAccess;
 
 if (
     isActionAccessible($guid, $connection2, '/modules/Seating Plan/record_delete.php')
@@ -52,7 +53,11 @@ if ($type === '' || $recordID === '') {
     return;
 }
 
-$record = $container->get(RecordAdmin::class)->find($type, $recordID);
+$record = $container->get(RecordAdmin::class)->find(
+    $type,
+    $recordID,
+    ReportAccess::viewerScope($guid, $connection2, $session->get('gibbonPersonID'))
+);
 
 if (empty($record)) {
     $page->addError(__('The specified record does not exist.'));

@@ -347,9 +347,8 @@ class RoomExitGateway extends QueryableGateway
      * @param QueryCriteria $criteria     Paging and sorting.
      * @param string        $groupBy      A ReportGrouping key.
      * @param array         $filters      See ReportQueryTrait::filterReport.
-     * @param string|null   $ownClassesOf When set, narrows the report to
-     *                                    what this viewer may see under
-     *                                    Reports_my.
+     * @param array|null    $scope        From ReportAccess::scopeFor();
+     *                                    null shows every record.
      *
      * @return \Gibbon\Domain\DataSet
      */
@@ -357,7 +356,7 @@ class RoomExitGateway extends QueryableGateway
         QueryCriteria $criteria,
         $groupBy,
         array $filters = [],
-        $ownClassesOf = null
+        ?array $scope = null
     ) {
         $grouping = ReportGrouping::definition($groupBy, self::DATE_COLUMN);
 
@@ -378,9 +377,7 @@ class RoomExitGateway extends QueryableGateway
         $this->joinReportTables($query);
         $this->filterReport($query, $filters, self::DATE_COLUMN);
 
-        if (!empty($ownClassesOf)) {
-            $this->scopeReportToOwnClasses($query, $ownClassesOf);
-        }
+        $this->scopeReport($query, $scope);
 
         foreach ($grouping['sortBy'] as $column) {
             $query->orderBy([$column]);
@@ -395,14 +392,13 @@ class RoomExitGateway extends QueryableGateway
      * why this is its own query.
      *
      * @param array       $filters      See ReportQueryTrait::filterReport.
-     * @param string|null $ownClassesOf When set, narrows the totals the
-     *                                  same way the report itself is
-     *                                  narrowed under Reports_my.
+     * @param array|null  $scope        From ReportAccess::scopeFor();
+     *                                  null counts every record.
      *
      * @return array ['exits' => int, 'minutes' => int, 'stillOut' => int,
      *                'students' => int]
      */
-    public function summariseExits(array $filters = [], $ownClassesOf = null): array
+    public function summariseExits(array $filters = [], ?array $scope = null): array
     {
         $query = $this
             ->newQuery()
@@ -418,9 +414,7 @@ class RoomExitGateway extends QueryableGateway
         $this->joinReportTables($query);
         $this->filterReport($query, $filters, self::DATE_COLUMN);
 
-        if (!empty($ownClassesOf)) {
-            $this->scopeReportToOwnClasses($query, $ownClassesOf);
-        }
+        $this->scopeReport($query, $scope);
 
         $row = $this->runSelect($query)->fetch() ?: [];
 
@@ -438,8 +432,8 @@ class RoomExitGateway extends QueryableGateway
      * @param QueryCriteria $criteria       Paging and sorting.
      * @param string        $gibbonPersonID The student.
      * @param array         $filters        See ReportQueryTrait.
-     * @param string|null   $ownClassesOf   When set, narrows to what this
-     *                                      viewer may see under Reports_my.
+     * @param array|null    $scope          From ReportAccess::scopeFor();
+     *                                      null shows every record.
      *
      * @return \Gibbon\Domain\DataSet
      */
@@ -447,7 +441,7 @@ class RoomExitGateway extends QueryableGateway
         QueryCriteria $criteria,
         $gibbonPersonID,
         array $filters = [],
-        $ownClassesOf = null
+        ?array $scope = null
     ) {
         $query = $this
             ->newQuery()
@@ -475,9 +469,7 @@ class RoomExitGateway extends QueryableGateway
         $this->joinReportTables($query);
         $this->filterReport($query, $filters, self::DATE_COLUMN);
 
-        if (!empty($ownClassesOf)) {
-            $this->scopeReportToOwnClasses($query, $ownClassesOf);
-        }
+        $this->scopeReport($query, $scope);
 
         return $this->runQuery($query, $criteria);
     }

@@ -90,6 +90,14 @@ class ReportFilters
             $values[$name] = $_GET[$name] ?? '';
         }
 
+        // Mine / others' narrows what the Reports permission already allows;
+        // it can never widen it. A report opens on the viewer's own records.
+        $records = $_GET['records'] ?? '';
+        $values['records'] = in_array($records, ['mine', 'others', 'all'], true)
+            ? $records
+            : 'mine';
+        $values['recordsViewer'] = $this->session->get('gibbonPersonID');
+
         // An inverted range is corrected rather than reported as an error,
         // the same thing core's own Attendance Trends report does.
         if ($values['dateStart'] > $values['dateEnd']) {
@@ -130,13 +138,16 @@ class ReportFilters
     /**
      * The filter form, ready to echo.
      *
-     * @param array $values The output of values(), so the form shows what
-     *                      is actually being applied rather than what was
-     *                      typed.
+     * @param array $values       The output of values(), so the form shows
+     *                            what is actually being applied rather than
+     *                            what was typed.
+     * @param bool  $seesOthers   Whether the viewer may see colleagues'
+     *                            records at all; the Mine / Others' choice is
+     *                            only offered when they may.
      *
      * @return string
      */
-    public function getOutput(array $values): string
+    public function getOutput(array $values, bool $seesOthers = false): string
     {
         $schoolYearID = $this->session->get('gibbonSchoolYearID');
 
@@ -191,6 +202,19 @@ class ReportFilters
         $row->addSelectClass('gibbonCourseClassID', $schoolYearID)
             ->selected($values['gibbonCourseClassID'])
             ->placeholder();
+
+        if ($seesOthers) {
+            $row = $form->addRow();
+            $row->addLabel('records', __('Records'));
+            $row->addRadio('records')
+                ->fromArray([
+                    'mine'   => __('Mine'),
+                    'others' => __('Others\''),
+                    'all'    => __('All I can see'),
+                ])
+                ->checked($values['records'])
+                ->inline();
+        }
 
         $row = $form->addRow();
         $row->addLabel('gibbonPersonIDCreator', __('Recorded By'));

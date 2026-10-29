@@ -137,25 +137,37 @@ trait ReportQueryTrait
             }
         }
 
+        if (in_array($filters['records'] ?? '', ['mine', 'others'], true)
+            && !empty($filters['recordsViewer'])
+        ) {
+            $query->where('r.gibbonPersonIDCreator '
+                .($filters['records'] === 'mine' ? '=' : '<>').' :recordsViewer')
+                ->bindValue('recordsViewer', $filters['recordsViewer']);
+        }
+
         return $query;
     }
 
     /**
-     * Narrows a report to what a viewer holding only Reports_my may see:
-     * the records they made themselves. A colleague's records, even in a
-     * class the viewer also teaches, need Reports_all.
+     * Narrows a report to the records the viewer may see. See
+     * ReportAccess::scopeFor().
      *
-     * @param SelectInterface $query          The query.
-     * @param string          $gibbonPersonID The viewer.
+     * @param SelectInterface $query The query.
+     * @param array|null      $scope From ReportAccess::scopeFor(); null
+     *                               leaves the query unchanged.
      *
      * @return SelectInterface
      */
-    protected function scopeReportToOwnClasses(
+    protected function scopeReport(
         SelectInterface $query,
-        $gibbonPersonID
+        ?array $scope
     ): SelectInterface {
-        return $query
-            ->where('r.gibbonPersonIDCreator = :viewer')
-            ->bindValue('viewer', $gibbonPersonID);
+        if ($scope === null) {
+            return $query;
+        }
+
+        [$sql, $data] = ReportAccess::condition($scope);
+
+        return $query->where($sql)->bindValues($data);
     }
 }

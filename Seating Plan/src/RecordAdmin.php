@@ -29,6 +29,7 @@ namespace Gibbon\Module\SeatingPlan;
 use Gibbon\Services\Format;
 use Gibbon\Module\SeatingPlan\Domain\RewardTallyGateway;
 use Gibbon\Module\SeatingPlan\Domain\RoomExitGateway;
+use Gibbon\Module\SeatingPlan\Reports\ReportAccess;
 
 /**
  * The parts an administrator's correction pages share.
@@ -54,12 +55,19 @@ class RecordAdmin
      */
     private $exitGateway;
 
+    /**
+     * @var ReportAccess
+     */
+    private $access;
+
     public function __construct(
         RewardTallyGateway $tallyGateway,
-        RoomExitGateway $exitGateway
+        RoomExitGateway $exitGateway,
+        ReportAccess $access
     ) {
         $this->tallyGateway = $tallyGateway;
         $this->exitGateway = $exitGateway;
+        $this->access = $access;
     }
 
     /**
@@ -75,14 +83,24 @@ class RecordAdmin
     /**
      * One record of either kind, with its lesson context.
      *
-     * @param string $type One of the two constants.
-     * @param string $id   The record.
+     * @param string     $type  One of the two constants.
+     * @param string     $id    The record.
+     * @param array|null $scope From ReportAccess::viewerScope(): a record
+     *                          the viewer could not see in a report is
+     *                          treated as missing.
      *
-     * @return array Empty when the type is unknown or the row is gone.
+     * @return array Empty when the type is unknown, the row is gone or it
+     *               is outside the scope.
      */
-    public function find($type, $id): array
+    public function find($type, $id, ?array $scope): array
     {
         if ($id === '' || self::resolveType($type) === '') {
+            return [];
+        }
+
+        $table = $type === self::REWARD ? 'seatingPlanReward' : 'seatingPlanRoomExit';
+
+        if (!$this->access->canSeeRecord($table, $id, $scope)) {
             return [];
         }
 

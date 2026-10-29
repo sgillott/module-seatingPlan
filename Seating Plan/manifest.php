@@ -33,7 +33,7 @@ $description = 'Graphical classroom seating plans. Draw a room, seat students '
 $entryURL    = 'seatingPlans.php';
 $type        = 'Additional';
 $category    = 'Learn';
-$version     = '1.2.00';
+$version     = '1.3.00';
 $author      = 'Steve Gillott';
 $url         = 'https://github.com/sgillott';
 
@@ -264,12 +264,13 @@ $actionRows[] = [
 // Reports are a grouped action, the convention core's own Behaviour module
 // uses: one menu entry, one set of pages, and the highest-precedence action
 // the viewer holds decides whose data they see. _all is every record in the
-// school; _my is only the records the viewer made.
+// school; _department adds the classes of departments the viewer coordinates
+// to their own records; _my is only the records the viewer made.
 $reportURLList = 'report_rewards.php,report_roomExits.php,report_student.php';
 
 $actionRows[] = [
     'name'                      => 'Reports_all',
-    'precedence'                => '1',
+    'precedence'                => '2',
     'category'                  => 'Reports',
     'description'               => 'Report on rewards, sanctions and room '
         . 'exits for every student.',
@@ -278,6 +279,28 @@ $actionRows[] = [
     'entrySidebar'              => 'Y',
     'menuShow'                  => 'Y',
     'defaultPermissionAdmin'    => 'Y',
+    'defaultPermissionTeacher'  => 'N',
+    'defaultPermissionStudent'  => 'N',
+    'defaultPermissionParent'   => 'N',
+    'defaultPermissionSupport'  => 'N',
+    'categoryPermissionStaff'   => 'Y',
+    'categoryPermissionStudent' => 'N',
+    'categoryPermissionParent'  => 'N',
+    'categoryPermissionOther'   => 'N',
+];
+
+$actionRows[] = [
+    'name'                      => 'Reports_department',
+    'precedence'                => '1',
+    'category'                  => 'Reports',
+    'description'               => 'Report on the rewards, sanctions and '
+        . 'room exits you recorded, and those recorded in classes of '
+        . 'departments you coordinate.',
+    'URLList'                   => $reportURLList,
+    'entryURL'                  => 'report_rewards.php',
+    'entrySidebar'              => 'Y',
+    'menuShow'                  => 'Y',
+    'defaultPermissionAdmin'    => 'N',
     'defaultPermissionTeacher'  => 'N',
     'defaultPermissionStudent'  => 'N',
     'defaultPermissionParent'   => 'N',
@@ -318,7 +341,8 @@ $actionRows[] = [
     'precedence'                => '0',
     'category'                  => 'Reports',
     'description'               => 'Correct or remove a student\'s reward, '
-        . 'sanction or room exit record for a lesson.',
+        . 'sanction or room exit record for a lesson. Only records your '
+        . 'Reports permission lets you see.',
     'URLList'                   => 'record_edit.php,record_editProcess.php,'
         . 'record_delete.php,record_deleteProcess.php',
     'entryURL'                  => 'record_edit.php',
